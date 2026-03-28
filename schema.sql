@@ -17,6 +17,7 @@ CREATE TABLE `users` (
   `email` VARCHAR(255) NULL UNIQUE,
   `password` VARCHAR(255) NOT NULL,
   `role` ENUM('admin','user') NOT NULL DEFAULT 'user',
+  `tier` ENUM('free','premium') NOT NULL DEFAULT 'free',
   `status` ENUM('pending','active') NOT NULL DEFAULT 'active',
   `reset_token` VARCHAR(64) NULL,
   `reset_token_expires` DATETIME NULL,
@@ -39,17 +40,42 @@ CREATE TABLE `recipes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ─────────────────────────────────────────────────────────────────────
--- Table: week_plan_entries (per-user, one row per day)
+-- Table: week_plans (named plans per user, free=1, premium=2)
+-- ─────────────────────────────────────────────────────────────────────
+CREATE TABLE `week_plans` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `owner_id` INT UNSIGNED NOT NULL,
+  `name` VARCHAR(128) NOT NULL DEFAULT 'Mein Wochenplan',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`owner_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Table: week_plan_entries (per plan, one row per day)
 -- ─────────────────────────────────────────────────────────────────────
 CREATE TABLE `week_plan_entries` (
   `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  `user_id` INT UNSIGNED NOT NULL,
+  `plan_id` INT UNSIGNED NOT NULL,
   `day_name` VARCHAR(20) NOT NULL,
   `day_index` TINYINT UNSIGNED NOT NULL,
   `recipe_id` VARCHAR(64) NOT NULL,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `uq_user_day` (`user_id`, `day_index`),
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+  UNIQUE KEY `uq_plan_day` (`plan_id`, `day_index`),
+  FOREIGN KEY (`plan_id`) REFERENCES `week_plans`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- ─────────────────────────────────────────────────────────────────────
+-- Table: plan_shares (premium: share plans with other users)
+-- ─────────────────────────────────────────────────────────────────────
+CREATE TABLE `plan_shares` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `plan_id` INT UNSIGNED NOT NULL,
+  `shared_with_user_id` INT UNSIGNED NOT NULL,
+  `permission` ENUM('view','edit') NOT NULL DEFAULT 'view',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `uq_share` (`plan_id`, `shared_with_user_id`),
+  FOREIGN KEY (`plan_id`) REFERENCES `week_plans`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`shared_with_user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ─────────────────────────────────────────────────────────────────────
