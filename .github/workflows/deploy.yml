@@ -12,18 +12,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install lftp
+        run: sudo apt-get install -y lftp
+
       - name: Deploy via SFTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          protocol: sftp
-          port: 22
-          server: ${{ secrets.SFTP_HOST }}
-          username: ${{ secrets.SFTP_USER }}
-          password: ${{ secrets.SFTP_PASS }}
-          server-dir: /htdocs/
-          local-dir: ./
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-            .github/**
+        run: |
+          lftp -e "
+            set sftp:auto-confirm yes;
+            set net:timeout 10;
+            set net:max-retries 3;
+            open sftp://${{ secrets.SFTP_USER }}:${{ secrets.SFTP_PASS }}@${{ secrets.SFTP_HOST }}:22;
+            mirror --reverse --delete --verbose --exclude .git/ --exclude .github/ ./ /htdocs/;
+            bye
+          "
