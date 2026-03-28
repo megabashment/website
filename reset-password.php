@@ -46,29 +46,18 @@ if (empty($token)) {
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; overflow: hidden; }
-    #bg { position: fixed; top: 0; left: 0; z-index: 0; display: block; }
-    #reset-container { position: relative; z-index: 1; }
+    body { margin: 0; padding: 0; overflow-x: hidden; overflow-y: auto; }
     input:focus { outline: none; }
-    .glowing-button {
-      transition: all 0.3s ease;
-    }
-    .glowing-button:hover {
-      box-shadow: 0 0 20px rgba(124, 58, 237, 0.4), 0 0 40px rgba(124, 58, 237, 0.2);
-    }
   </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen">
 
-<canvas id="bg"></canvas>
-
-<div id="reset-container" class="min-h-screen flex items-center justify-center p-4">
+<div class="min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-sm">
-    <div class="backdrop-blur-sm">
 
-      <div class="text-center mb-8">
-        <h2 class="text-2xl font-semibold text-zinc-300">Passwort zurücksetzen</h2>
-      </div>
+    <div class="text-center mb-8">
+      <h2 class="text-2xl font-semibold text-zinc-300">Passwort zurücksetzen</h2>
+    </div>
 
     <?php if (!$isValidToken): ?>
       <!-- Invalid Token Message -->
@@ -118,9 +107,13 @@ if (empty($token)) {
           <!-- Error text will be inserted here -->
         </div>
 
+        <div id="success-message" class="hidden text-sm text-green-400 bg-green-950/30 border border-green-900/50 rounded-lg p-3">
+          <!-- Success text will be inserted here -->
+        </div>
+
         <button
           type="submit"
-          class="glowing-button w-full mt-8 px-5 py-2.5 bg-violet-600 text-white rounded-lg text-sm font-semibold transition-colors"
+          class="w-full mt-8 px-5 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm font-semibold transition-colors"
         >
           Passwort speichern
         </button>
@@ -134,269 +127,58 @@ if (empty($token)) {
       </form>
     <?php endif; ?>
 
-    </div>
   </div>
 </div>
 
 <script>
-const canvas = document.getElementById('bg');
-const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>`;
+const EYE_CLOSED = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>`;
 
-let startTime = Date.now();
-
-function effectBezierParticles() {
-  const particles = [];
-  const particleCount = 90;
-  const connectionDistance = 180;
-
-  class Particle {
-    constructor() {
-      this.x = Math.random() * canvas.width;
-      this.y = Math.random() * canvas.height;
-      this.vx = (Math.random() - 0.5) * 0.5;
-      this.vy = (Math.random() - 0.5) * 0.5;
-      this.radius = Math.random() * 1.5 + 0.5;
-    }
-
-    update() {
-      this.x += this.vx;
-      this.y += this.vy;
-      if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-      if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-      this.x = Math.max(0, Math.min(canvas.width, this.x));
-      this.y = Math.max(0, Math.min(canvas.height, this.y));
-    }
-
-    draw() {
-      ctx.fillStyle = `rgba(139, 92, 246, 0.8)`;
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  for (let i = 0; i < particleCount; i++) {
-    particles.push(new Particle());
-  }
-
-  function frame() {
-    ctx.fillStyle = 'rgba(9, 9, 11, 0.1)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    for (let particle of particles) {
-      particle.update();
-      particle.draw();
-    }
-
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (distance < connectionDistance) {
-          const opacity = (1 - distance / connectionDistance) * 0.15;
-          ctx.strokeStyle = `rgba(109, 40, 217, ${opacity})`;
-          ctx.lineWidth = 1;
-
-          const mx = (particles[i].x + particles[j].x) / 2;
-          const my = (particles[i].y + particles[j].y) / 2;
-          const offset = Math.sin(Date.now() * 0.0005) * 5;
-          const cpx = mx + offset * (dy / distance || 1);
-          const cpy = my + offset * (dx / distance || 1);
-
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.quadraticCurveTo(cpx, cpy, particles[j].x, particles[j].y);
-          ctx.stroke();
-        }
-      }
-    }
-
-    requestAnimationFrame(frame);
-  }
-  frame();
+function setupPasswordToggle(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'relative';
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+  input.style.paddingRight = '1.75rem';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.tabIndex = -1;
+  btn.setAttribute('aria-label', 'Passwort anzeigen');
+  btn.style.cssText = 'position:absolute;right:0;top:50%;transform:translateY(-50%);display:none;background:none;border:none;cursor:pointer;color:#71717a;padding:2px;';
+  btn.innerHTML = EYE_OPEN;
+  wrapper.appendChild(btn);
+  input.addEventListener('input', () => {
+    btn.style.display = input.value.length >= 8 ? 'flex' : 'none';
+  });
+  btn.addEventListener('mouseenter', () => btn.style.color = '#d4d4d8');
+  btn.addEventListener('mouseleave', () => btn.style.color = '#71717a');
+  btn.addEventListener('click', () => {
+    const visible = input.type === 'text';
+    input.type = visible ? 'password' : 'text';
+    btn.innerHTML = visible ? EYE_OPEN : EYE_CLOSED;
+    input.focus();
+  });
 }
 
-function effectEightBit() {
-  const blockSize = 24;
-  const cols = Math.ceil(canvas.width / blockSize);
-  const rows = Math.ceil(canvas.height / blockSize);
-  const grid = Array(cols).fill().map(() => Array(rows).fill(0));
-  const colors = ['#8b5cf6', '#7c3aed', '#6d28d9', '#00ff00', '#ff00ff', '#00ffff'];
+setupPasswordToggle('new-password');
+setupPasswordToggle('confirm-password');
 
-  for (let i = 0; i < cols; i++) {
-    for (let j = 0; j < rows; j++) {
-      grid[i][j] = Math.random() > 0.7 ? Math.floor(Math.random() * colors.length) : -1;
+// Realtime password match check
+const pwField = document.getElementById('new-password');
+const pwConfirmField = document.getElementById('confirm-password');
+if (pwField && pwConfirmField) {
+  function checkPasswordMatch() {
+    if (pwConfirmField.value.length === 0) {
+      pwConfirmField.style.borderColor = '';
+      return;
     }
+    pwConfirmField.style.borderColor = pwField.value === pwConfirmField.value ? '#22c55e' : '#ef4444';
   }
-
-  function frame() {
-    ctx.fillStyle = 'rgba(9, 9, 11, 0.05)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        if (grid[i][j] >= 0) {
-          ctx.fillStyle = colors[grid[i][j]];
-          ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.003 + i + j) * 0.4;
-          ctx.fillRect(i * blockSize, j * blockSize, blockSize - 2, blockSize - 2);
-          ctx.globalAlpha = 1;
-
-          if (Math.random() > 0.98) {
-            grid[i][j] = Math.random() > 0.5 ? Math.floor(Math.random() * colors.length) : -1;
-          }
-        }
-      }
-    }
-
-    requestAnimationFrame(frame);
-  }
-  frame();
+  pwField.addEventListener('input', checkPasswordMatch);
+  pwConfirmField.addEventListener('input', checkPasswordMatch);
 }
-
-function effectMatrixRain() {
-  const fontSize = 16;
-  const chars = 'ｦｧｨｩｪｫｬｭｮｯﾀﾁﾂﾃﾄﾅﾆﾇﾈﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
-  const cols = Math.ceil(canvas.width / fontSize);
-  const drops = Array(cols).fill(0).map(() => Math.random() * canvas.height);
-
-  function frame() {
-    ctx.fillStyle = 'rgba(9, 9, 11, 0.05)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.font = `bold ${fontSize}px monospace`;
-    ctx.fillStyle = '#00ff00';
-    ctx.globalAlpha = 0.8;
-
-    for (let i = 0; i < drops.length; i++) {
-      const char = chars[Math.floor(Math.random() * chars.length)];
-      ctx.fillText(char, i * fontSize, drops[i]);
-
-      drops[i] += fontSize;
-      if (drops[i] > canvas.height) {
-        drops[i] = Math.random() * fontSize;
-      }
-    }
-
-    ctx.globalAlpha = 1;
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-function effectGeometricWave() {
-  function frame() {
-    ctx.fillStyle = 'rgba(9, 9, 11, 0.08)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const time = (Date.now() - startTime) * 0.001;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-    ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
-    ctx.lineWidth = 2;
-
-    for (let i = 0; i < 5; i++) {
-      const radius = 50 + i * 40 + Math.sin(time + i) * 20;
-      const waves = 6 + Math.floor(Math.sin(time * 0.5 + i) * 2);
-
-      ctx.beginPath();
-      for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / (waves * 10)) {
-        const r = radius + Math.sin(a * waves + time) * 15;
-        const x = centerX + Math.cos(a) * r;
-        const y = centerY + Math.sin(a) * r;
-        if (a === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.stroke();
-    }
-
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-function effectGlitch() {
-  const lines = [];
-  for (let i = 0; i < 50; i++) {
-    lines.push({
-      y: Math.random() * canvas.height,
-      height: Math.random() * 30 + 5,
-      speed: Math.random() * 0.1 + 0.05,
-      offset: Math.random() * canvas.width
-    });
-  }
-
-  function frame() {
-    ctx.fillStyle = 'rgba(9, 9, 11, 0.1)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.globalAlpha = 0.7;
-
-    ctx.fillStyle = 'rgba(255, 0, 100, 0.3)';
-    for (let line of lines) {
-      const glitch = Math.sin(Date.now() * 0.005 + line.y) * 30;
-      ctx.fillRect(glitch, line.y, canvas.width, line.height);
-      line.y += line.speed;
-      if (line.y > canvas.height) line.y = -line.height;
-    }
-
-    ctx.fillStyle = 'rgba(0, 255, 100, 0.3)';
-    for (let line of lines) {
-      const glitch = Math.cos(Date.now() * 0.004 + line.y) * 20;
-      ctx.fillRect(glitch, line.y, canvas.width, line.height);
-    }
-
-    ctx.globalAlpha = 1;
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-function effectPlasma() {
-  const imageData = ctx.createImageData(canvas.width, canvas.height);
-  const data = imageData.data;
-
-  function frame() {
-    const time = Date.now() * 0.001;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const pixelIndex = i / 4;
-      const x = pixelIndex % canvas.width;
-      const y = Math.floor(pixelIndex / canvas.width);
-
-      const value = (
-        Math.sin(x * 0.01 + time) +
-        Math.sin(y * 0.01 + time) +
-        Math.sin((x + y) * 0.01 + time) +
-        Math.sin(Math.sqrt(x * x + y * y) * 0.01 + time)
-      ) * 64 + 128;
-
-      data[i] = Math.sin(value * 0.01 + time) * 127 + 128;
-      data[i + 1] = Math.sin(value * 0.02 + time) * 127 + 128;
-      data[i + 2] = Math.sin(value * 0.03 + time) * 127 + 128;
-      data[i + 3] = 255;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-const effects = [effectBezierParticles, effectEightBit, effectMatrixRain, effectGeometricWave, effectGlitch, effectPlasma];
-const randomEffect = effects[Math.floor(Math.random() * effects.length)];
-randomEffect();
-
-// Resize handler
-window.addEventListener('resize', () => {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-});
 
 document.getElementById('reset-password-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -405,17 +187,22 @@ document.getElementById('reset-password-form')?.addEventListener('submit', async
   const newPassword = document.getElementById('new-password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
   const errorDiv = document.getElementById('error-message');
+  const successDiv = document.getElementById('success-message');
+  const submitBtn = e.target.querySelector('button[type="submit"]');
 
-  // Clear previous errors
   errorDiv.classList.add('hidden');
+  successDiv.classList.add('hidden');
   errorDiv.textContent = '';
+  successDiv.textContent = '';
 
-  // Check if passwords match
   if (newPassword !== confirmPassword) {
     errorDiv.classList.remove('hidden');
     errorDiv.textContent = 'Passwörter stimmen nicht überein.';
     return;
   }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Wird gespeichert…';
 
   try {
     const response = await fetch('/api/auth.php', {
@@ -431,16 +218,23 @@ document.getElementById('reset-password-form')?.addEventListener('submit', async
     const data = await response.json();
 
     if (data.ok) {
-      alert('✅ Passwort erfolgreich zurückgesetzt! Du wirst nun zur Anmeldung weitergeleitet.');
-      window.location.href = '/login.html';
+      successDiv.classList.remove('hidden');
+      successDiv.textContent = 'Passwort erfolgreich zurückgesetzt! Du wirst zur Anmeldung weitergeleitet…';
+      submitBtn.textContent = 'Gespeichert!';
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 2000);
     } else {
       errorDiv.classList.remove('hidden');
       errorDiv.textContent = data.error || 'Fehler beim Zurücksetzen des Passworts.';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Passwort speichern';
     }
   } catch (error) {
     errorDiv.classList.remove('hidden');
     errorDiv.textContent = 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.';
-    console.error('Reset password error:', error);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Passwort speichern';
   }
 });
 

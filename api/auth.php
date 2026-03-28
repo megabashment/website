@@ -14,6 +14,8 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
 
 require_once '../includes/db.php';
 require_once '../includes/config.php';
@@ -25,6 +27,9 @@ if (ini_get('session.cookie_httponly') == 0) {
 }
 if (ini_get('session.cookie_samesite') !== 'Strict') {
     ini_set('session.cookie_samesite', 'Strict');
+}
+if (ini_get('session.cookie_secure') != 1) {
+    ini_set('session.cookie_secure', 1);
 }
 
 // Start session if not already started
@@ -85,6 +90,7 @@ if ($action === 'login') {
         $user = $stmt->fetch();
 
         if (!$user || !password_verify($password, $user['password'])) {
+            sleep(1); // Brute-force-Verzögerung
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Ungültige Anmeldedaten.']);
             exit;
@@ -144,13 +150,20 @@ if ($action === 'logout') {
 // ─────────────────────────────────────────────────────────────────────
 if ($action === 'register') {
     $username = trim($input['username'] ?? '');
+    $displayName = trim($input['display_name'] ?? '');
     $email = trim($input['email'] ?? '');
     $password = $input['password'] ?? '';
 
     // Validation
-    if (empty($username) || !preg_match('/^[a-z0-9_\-]{2,64}$/i', $username)) {
+    if (empty($username) || !preg_match('/^[a-zA-Z0-9_-]{2,10}$/', $username)) {
         http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'Ungültiger Benutzername (2-64 Zeichen, nur alphanumerisch).']);
+        echo json_encode(['ok' => false, 'error' => 'Ungültiger Benutzername (2-10 Zeichen, nur Buchstaben, Zahlen, _ und -).']);
+        exit;
+    }
+
+    if (empty($displayName) || strlen($displayName) > 128) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Anzeigename erforderlich (max. 128 Zeichen).']);
         exit;
     }
 
@@ -192,22 +205,20 @@ if ($action === 'register') {
         $stmt = $db->prepare(
             'INSERT INTO users (username, display_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$username, $username, $email, $passwordHash, 'user', 'pending']);
+        $stmt->execute([$username, $displayName, $email, $passwordHash, 'user', 'pending']);
         $userId = $db->lastInsertId();
 
         // Send confirmation email to user (if sendMail is available)
         if (function_exists('sendMail')) {
-            $subject = 'Dein Konto bei Wochenplaner wurde beantragt';
+            $subject = 'Registrierung beantragt';
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2>Registrierung beantragt</h2>
-                        <p>Hallo {$username},</p>
+                        <p>Hallo {$displayName},</p>
                         <p>deine Registrierung wurde eingegangen. Dein Konto wird überprüft und du wirst benachrichtigt, sobald es von einem Administrator freigeschaltet wurde.</p>
                         <p>Bis dahin kannst du dich noch nicht anmelden.</p>
-                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
                     </div>
                 </body>
             </html>
@@ -244,6 +255,14 @@ if ($action === 'forgot_password') {
         exit;
     }
 
+    // Rate-Limit: max. 1 Reset-Anfrage pro 2 Minuten pro Benutzername
+    $rateLimitKey = 'pwd_reset_' . hash('sha256', $username);
+    if (!empty($_SESSION[$rateLimitKey]) && (time() - $_SESSION[$rateLimitKey]) < 120) {
+        echo json_encode(['ok' => true, 'message' => 'Falls das Konto existiert, erhältst du eine E-Mail.']);
+        exit;
+    }
+    $_SESSION[$rateLimitKey] = time();
+
     try {
         $db = getDB();
 
@@ -268,19 +287,17 @@ if ($action === 'forgot_password') {
 
         // Send reset email
         $resetUrl = APP_URL . '/reset-password.php?token=' . urlencode($token);
-        $subject = 'Passwort zurücksetzen — Wochenplaner';
+        $subject = 'Passwort zurücksetzen';
         $body = <<<HTML
         <html>
             <body style="font-family: Arial, sans-serif; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2>Passwort zurücksetzen</h2>
                     <p>Hallo {$user['username']},</p>
-                    <p>Du hast eine Anfrage zum Zurücksetzen deines Passworts gestellt. Klicke auf den Link unten, um ein neues Passwort zu setzen.</p>
-                    <p><a href="{$resetUrl}" style="background-color: #7c3aed; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Passwort zurücksetzen</a></p>
+                    <p>Du hast eine Anfrage zum Zurücksetzen deines Passworts gestellt. Klicke auf den folgenden Link, um ein neues Passwort zu setzen:</p>
+                    <p><a href="{$resetUrl}" style="color: #7c3aed;">{$resetUrl}</a></p>
                     <p>Dieser Link ist 1 Stunde lang gültig.</p>
                     <p>Falls du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.</p>
-                    <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                    <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
                 </div>
             </body>
         </html>

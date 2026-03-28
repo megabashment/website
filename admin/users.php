@@ -103,7 +103,8 @@ try {
 
         // Send welcome email if email is provided
         if (!empty($email)) {
-            $subject = 'Willkommen bei Wochenplaner!';
+            $subject = 'Dein Konto wurde erstellt';
+            $loginUrl = APP_URL . '/login.html';
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
@@ -116,10 +117,8 @@ try {
                             <p><strong>Passwort:</strong> {$password}</p>
                         </div>
                         <p>Du kannst dich hier anmelden:</p>
-                        <p><a href="{APP_URL}" style="background-color: #7c3aed; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Zur App gehen</a></p>
+                        <p><a href="{$loginUrl}" style="color: #7c3aed;">{$loginUrl}</a></p>
                         <p style="margin-top: 30px; font-size: 14px; color: #999;">Ändere bitte dein Passwort, wenn du dich das erste Mal anmeldest.</p>
-                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
                     </div>
                 </body>
             </html>
@@ -246,7 +245,8 @@ try {
 
         // Send approval email if email is available
         if (!empty($user['email']) && function_exists('sendMail')) {
-            $subject = 'Dein Konto bei Wochenplaner wurde freigegeben';
+            $subject = 'Dein Konto wurde freigegeben';
+            $loginUrl = APP_URL . '/login.html';
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
@@ -254,9 +254,7 @@ try {
                         <h2>Willkommen!</h2>
                         <p>Hallo {$user['display_name']},</p>
                         <p>dein Konto wurde freigegeben und ist nun aktiv. Du kannst dich jetzt anmelden:</p>
-                        <p><a href="{APP_URL}/login.html" style="background-color: #7c3aed; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Zur Anmeldung gehen</a></p>
-                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
+                        <p><a href="{$loginUrl}" style="color: #7c3aed;">{$loginUrl}</a></p>
                     </div>
                 </body>
             </html>
