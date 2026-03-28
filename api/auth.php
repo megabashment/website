@@ -28,9 +28,8 @@ if (ini_get('session.cookie_httponly') == 0) {
 if (ini_get('session.cookie_samesite') !== 'Strict') {
     ini_set('session.cookie_samesite', 'Strict');
 }
-if (ini_get('session.cookie_secure') != 1) {
-    ini_set('session.cookie_secure', 1);
-}
+// Enable once HTTPS is active on the domain:
+// if (ini_get('session.cookie_secure') != 1) { ini_set('session.cookie_secure', 1); }
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
