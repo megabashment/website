@@ -27,9 +27,7 @@
   <div class="w-full max-w-sm">
     <div class="backdrop-blur-sm">
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-thin tracking-[0.3em] text-white mb-4">Wochenplaner</h1>
         <h2 class="text-2xl font-semibold text-zinc-300">Registrierung</h2>
-        <p class="text-zinc-500 text-sm mt-2">Erstellung eines neuen Kontos</p>
       </div>
 
       <form id="register-form" class="space-y-5">
@@ -40,23 +38,9 @@
           <input
             id="username"
             type="text"
-            placeholder="z. B. papa"
+            placeholder=""
             pattern="[a-z0-9_\-]{2,64}"
             title="2-64 Zeichen, nur Buchstaben, Zahlen, _ und -"
-            required
-            class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
-          />
-        </div>
-
-        <div>
-          <label for="display-name" class="block text-xs text-zinc-500 uppercase tracking-widest mb-3">
-            Anzeigename
-          </label>
-          <input
-            id="display-name"
-            type="text"
-            placeholder="z. B. Papa"
-            maxlength="128"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
           />
@@ -69,7 +53,7 @@
           <input
             id="email"
             type="email"
-            placeholder="deine@email.de"
+            placeholder=""
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
           />
@@ -82,7 +66,7 @@
           <input
             id="password"
             type="password"
-            placeholder="Mindestens 8 Zeichen"
+            placeholder=""
             minlength="8"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
@@ -96,7 +80,7 @@
           <input
             id="password-confirm"
             type="password"
-            placeholder="Passwort wiederholen"
+            placeholder=""
             minlength="8"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
@@ -238,7 +222,6 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
   e.preventDefault();
 
   const username = document.getElementById('username').value.trim();
-  const display_name = document.getElementById('display-name').value.trim();
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const password_confirm = document.getElementById('password-confirm').value;
@@ -265,7 +248,6 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
       body: JSON.stringify({
         action: 'register',
         username,
-        display_name,
         email,
         password
       })

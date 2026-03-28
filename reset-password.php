@@ -67,7 +67,6 @@ if (empty($token)) {
     <div class="backdrop-blur-sm">
 
       <div class="text-center mb-8">
-        <h1 class="text-4xl font-thin tracking-[0.3em] text-white mb-4">Wochenplaner</h1>
         <h2 class="text-2xl font-semibold text-zinc-300">Passwort zurücksetzen</h2>
       </div>
 
@@ -94,7 +93,7 @@ if (empty($token)) {
           <input
             id="new-password"
             type="password"
-            placeholder="Mindestens 8 Zeichen"
+            placeholder=""
             minlength="8"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
@@ -108,7 +107,7 @@ if (empty($token)) {
           <input
             id="confirm-password"
             type="password"
-            placeholder="Passwort wiederholen"
+            placeholder=""
             minlength="8"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"

@@ -144,7 +144,6 @@ if ($action === 'logout') {
 // ─────────────────────────────────────────────────────────────────────
 if ($action === 'register') {
     $username = trim($input['username'] ?? '');
-    $display_name = trim($input['display_name'] ?? '');
     $email = trim($input['email'] ?? '');
     $password = $input['password'] ?? '';
 
@@ -152,12 +151,6 @@ if ($action === 'register') {
     if (empty($username) || !preg_match('/^[a-z0-9_\-]{2,64}$/i', $username)) {
         http_response_code(400);
         echo json_encode(['ok' => false, 'error' => 'Ungültiger Benutzername (2-64 Zeichen, nur alphanumerisch).']);
-        exit;
-    }
-
-    if (empty($display_name) || strlen($display_name) > 128) {
-        http_response_code(400);
-        echo json_encode(['ok' => false, 'error' => 'Anzeigename ist erforderlich (max. 128 Zeichen).']);
         exit;
     }
 
@@ -199,7 +192,7 @@ if ($action === 'register') {
         $stmt = $db->prepare(
             'INSERT INTO users (username, display_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$username, $display_name, $email, $passwordHash, 'user', 'pending']);
+        $stmt->execute([$username, $username, $email, $passwordHash, 'user', 'pending']);
         $userId = $db->lastInsertId();
 
         // Send confirmation email to user (if sendMail is available)
@@ -210,7 +203,7 @@ if ($action === 'register') {
                 <body style="font-family: Arial, sans-serif; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2>Registrierung beantragt</h2>
-                        <p>Hallo {$display_name},</p>
+                        <p>Hallo {$username},</p>
                         <p>deine Registrierung wurde eingegangen. Dein Konto wird überprüft und du wirst benachrichtigt, sobald es von einem Administrator freigeschaltet wurde.</p>
                         <p>Bis dahin kannst du dich noch nicht anmelden.</p>
                         <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
