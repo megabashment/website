@@ -117,99 +117,264 @@
 </div>
 
 <script>
-// Canvas starfield animation
 const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
-
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Particle system
-const particles = [];
-const particleCount = 90;
-const connectionDistance = 180;
+let startTime = Date.now();
 
-class Particle {
-  constructor() {
-    this.x = Math.random() * canvas.width;
-    this.y = Math.random() * canvas.height;
-    this.vx = (Math.random() - 0.5) * 0.5;
-    this.vy = (Math.random() - 0.5) * 0.5;
-    this.radius = Math.random() * 1.5 + 0.5;
-  }
+// EFFECT 1: Bezier Particles
+function effectBezierParticles() {
+  const particles = [];
+  const particleCount = 90;
+  const connectionDistance = 180;
 
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
+  class Particle {
+    constructor() {
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height;
+      this.vx = (Math.random() - 0.5) * 0.5;
+      this.vy = (Math.random() - 0.5) * 0.5;
+      this.radius = Math.random() * 1.5 + 0.5;
+    }
 
-    // Bounce at edges
-    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
-    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+      if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      this.x = Math.max(0, Math.min(canvas.width, this.x));
+      this.y = Math.max(0, Math.min(canvas.height, this.y));
+    }
 
-    // Clamp position
-    this.x = Math.max(0, Math.min(canvas.width, this.x));
-    this.y = Math.max(0, Math.min(canvas.height, this.y));
-  }
-
-  draw() {
-    ctx.fillStyle = `rgba(139, 92, 246, 0.8)`;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// Initialize particles
-for (let i = 0; i < particleCount; i++) {
-  particles.push(new Particle());
-}
-
-function drawConnections() {
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-      const dx = particles[i].x - particles[j].x;
-      const dy = particles[i].y - particles[j].y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance < connectionDistance) {
-        const opacity = (1 - distance / connectionDistance) * 0.15;
-        ctx.strokeStyle = `rgba(109, 40, 217, ${opacity})`;
-        ctx.lineWidth = 1;
-
-        // Bezier curve with animated control point
-        const mx = (particles[i].x + particles[j].x) / 2;
-        const my = (particles[i].y + particles[j].y) / 2;
-        const offset = Math.sin(Date.now() * 0.0005) * 5;
-        const cpx = mx + offset * (dy / distance || 1);
-        const cpy = my + offset * (dx / distance || 1);
-
-        ctx.beginPath();
-        ctx.moveTo(particles[i].x, particles[i].y);
-        ctx.quadraticCurveTo(cpx, cpy, particles[j].x, particles[j].y);
-        ctx.stroke();
-      }
+    draw() {
+      ctx.fillStyle = `rgba(139, 92, 246, 0.8)`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
-}
 
-function animate() {
-  // Clear canvas with fade effect
-  ctx.fillStyle = 'rgba(9, 9, 11, 0.1)';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Update and draw particles
-  for (let particle of particles) {
-    particle.update();
-    particle.draw();
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(new Particle());
   }
 
-  // Draw connections
-  drawConnections();
+  function frame() {
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  requestAnimationFrame(animate);
+    for (let particle of particles) {
+      particle.update();
+      particle.draw();
+    }
+
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < connectionDistance) {
+          const opacity = (1 - distance / connectionDistance) * 0.15;
+          ctx.strokeStyle = `rgba(109, 40, 217, ${opacity})`;
+          ctx.lineWidth = 1;
+
+          const mx = (particles[i].x + particles[j].x) / 2;
+          const my = (particles[i].y + particles[j].y) / 2;
+          const offset = Math.sin(Date.now() * 0.0005) * 5;
+          const cpx = mx + offset * (dy / distance || 1);
+          const cpy = my + offset * (dx / distance || 1);
+
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.quadraticCurveTo(cpx, cpy, particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  frame();
 }
 
-animate();
+// EFFECT 2: 8-Bit Grid
+function effectEightBit() {
+  const blockSize = 24;
+  const cols = Math.ceil(canvas.width / blockSize);
+  const rows = Math.ceil(canvas.height / blockSize);
+  const grid = Array(cols).fill().map(() => Array(rows).fill(0));
+  const colors = ['#8b5cf6', '#7c3aed', '#6d28d9', '#00ff00', '#ff00ff', '#00ffff'];
+
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      grid[i][j] = Math.random() > 0.7 ? Math.floor(Math.random() * colors.length) : -1;
+    }
+  }
+
+  function frame() {
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < cols; i++) {
+      for (let j = 0; j < rows; j++) {
+        if (grid[i][j] >= 0) {
+          ctx.fillStyle = colors[grid[i][j]];
+          ctx.globalAlpha = 0.6 + Math.sin(Date.now() * 0.003 + i + j) * 0.4;
+          ctx.fillRect(i * blockSize, j * blockSize, blockSize - 2, blockSize - 2);
+          ctx.globalAlpha = 1;
+
+          if (Math.random() > 0.98) {
+            grid[i][j] = Math.random() > 0.5 ? Math.floor(Math.random() * colors.length) : -1;
+          }
+        }
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// EFFECT 3: Matrix Rain
+function effectMatrixRain() {
+  const fontSize = 16;
+  const chars = 'ｦｧｨｩｪｫｬｭｮｯﾀﾁﾂﾃﾄﾅﾆﾇﾈﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ';
+  const cols = Math.ceil(canvas.width / fontSize);
+  const drops = Array(cols).fill(0).map(() => Math.random() * canvas.height);
+
+  function frame() {
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = `bold ${fontSize}px monospace`;
+    ctx.fillStyle = '#00ff00';
+    ctx.globalAlpha = 0.8;
+
+    for (let i = 0; i < drops.length; i++) {
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(char, i * fontSize, drops[i]);
+
+      drops[i] += fontSize;
+      if (drops[i] > canvas.height) {
+        drops[i] = Math.random() * fontSize;
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// EFFECT 4: Geometric Wave
+function effectGeometricWave() {
+  function frame() {
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const time = (Date.now() - startTime) * 0.001;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.5)';
+    ctx.lineWidth = 2;
+
+    for (let i = 0; i < 5; i++) {
+      const radius = 50 + i * 40 + Math.sin(time + i) * 20;
+      const waves = 6 + Math.floor(Math.sin(time * 0.5 + i) * 2);
+
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 2; a += Math.PI * 2 / (waves * 10)) {
+        const r = radius + Math.sin(a * waves + time) * 15;
+        const x = centerX + Math.cos(a) * r;
+        const y = centerY + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// EFFECT 5: Glitch Effect
+function effectGlitch() {
+  const lines = [];
+  for (let i = 0; i < 50; i++) {
+    lines.push({
+      y: Math.random() * canvas.height,
+      height: Math.random() * 30 + 5,
+      speed: Math.random() * 0.1 + 0.05,
+      offset: Math.random() * canvas.width
+    });
+  }
+
+  function frame() {
+    ctx.fillStyle = 'rgba(9, 9, 11, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.globalAlpha = 0.7;
+
+    ctx.fillStyle = 'rgba(255, 0, 100, 0.3)';
+    for (let line of lines) {
+      const glitch = Math.sin(Date.now() * 0.005 + line.y) * 30;
+      ctx.fillRect(glitch, line.y, canvas.width, line.height);
+      line.y += line.speed;
+      if (line.y > canvas.height) line.y = -line.height;
+    }
+
+    ctx.fillStyle = 'rgba(0, 255, 100, 0.3)';
+    for (let line of lines) {
+      const glitch = Math.cos(Date.now() * 0.004 + line.y) * 20;
+      ctx.fillRect(glitch, line.y, canvas.width, line.height);
+    }
+
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// EFFECT 6: Plasma
+function effectPlasma() {
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+  const data = imageData.data;
+
+  function frame() {
+    const time = Date.now() * 0.001;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const pixelIndex = i / 4;
+      const x = pixelIndex % canvas.width;
+      const y = Math.floor(pixelIndex / canvas.width);
+
+      const value = (
+        Math.sin(x * 0.01 + time) +
+        Math.sin(y * 0.01 + time) +
+        Math.sin((x + y) * 0.01 + time) +
+        Math.sin(Math.sqrt(x * x + y * y) * 0.01 + time)
+      ) * 64 + 128;
+
+      data[i] = Math.sin(value * 0.01 + time) * 127 + 128;
+      data[i + 1] = Math.sin(value * 0.02 + time) * 127 + 128;
+      data[i + 2] = Math.sin(value * 0.03 + time) * 127 + 128;
+      data[i + 3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+const effects = [effectBezierParticles, effectEightBit, effectMatrixRain, effectGeometricWave, effectGlitch, effectPlasma];
+const randomEffect = effects[Math.floor(Math.random() * effects.length)];
+randomEffect();
 
 // Resize handler
 window.addEventListener('resize', () => {
