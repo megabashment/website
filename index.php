@@ -63,6 +63,28 @@ $csrf = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
     </div>
   </div>
 
+  <!-- Plan Switcher -->
+  <div id="plan-switcher" class="hidden flex flex-wrap items-center gap-2 mb-4">
+    <div id="plan-tabs" class="flex gap-1 flex-wrap"></div>
+    <button id="btn-new-plan" onclick="createPlan()"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors">
+      + Neuer Plan
+    </button>
+    <button id="btn-share-plan" onclick="openShareModal()"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors">
+      ↗ Teilen
+    </button>
+    <button id="btn-delete-plan" onclick="deletePlan()"
+      class="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors hidden">
+      🗑 Plan löschen
+    </button>
+  </div>
+
+  <!-- Read-only banner (shown when viewing shared plan with view-only permission) -->
+  <div id="readonly-banner" class="hidden mb-4 px-4 py-2 bg-amber-950/40 border border-amber-800/40 rounded-lg text-xs text-amber-400">
+    👁 Du siehst diesen Plan nur (Leserechte). Änderungen werden nicht gespeichert.
+  </div>
+
   <!-- Tab Nav -->
   <div class="flex gap-1 bg-zinc-900 border border-zinc-800 p-1 rounded-2xl mb-6 w-fit">
     <button id="tab-rezepte" onclick="showTab('rezepte')"
@@ -175,6 +197,33 @@ $csrf = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
 
 </div>
 
+<!-- Share Modal -->
+<div id="share-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onclick="if(event.target===this)closeShareModal()">
+  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-base font-semibold text-zinc-200">Plan teilen</h3>
+      <button onclick="closeShareModal()" class="text-zinc-600 hover:text-zinc-300 transition-colors text-lg leading-none">✕</button>
+    </div>
+
+    <div class="flex gap-2 mb-4">
+      <input id="share-username-input" type="text" placeholder="Benutzername"
+        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-colors placeholder-zinc-600 text-zinc-100" />
+      <select id="share-permission-select"
+        class="bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-violet-500 transition-colors text-zinc-300">
+        <option value="view">Lesen</option>
+        <option value="edit">Bearbeiten</option>
+      </select>
+      <button onclick="addShare()"
+        class="px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-semibold transition-colors shrink-0">
+        +
+      </button>
+    </div>
+
+    <div id="share-error" class="hidden text-xs text-red-400 mb-3"></div>
+    <div id="share-list" class="space-y-2"></div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════
 //  DATA & STATE
@@ -186,6 +235,9 @@ let weekPlan = [];
 let shoppingList = {};
 let currentUser = null;
 let csrfToken = null;
+let userPlans = [];
+let activePlanId = null;
+let activePlanPermission = 'edit';
 
 // Get CSRF token from meta tag
 function initCSRF() {
@@ -193,12 +245,13 @@ function initCSRF() {
   csrfToken = metaTag ? metaTag.getAttribute('content') : null;
 }
 
-// Fetch recipes from API
+// Fetch recipes + week plan from API
 async function loadData() {
   try {
+    const planParam = activePlanId ? `?plan_id=${activePlanId}` : '';
     const [rRes, wRes] = await Promise.all([
       fetch('/api/recipes.php'),
-      fetch('/api/weekplan.php')
+      fetch('/api/weekplan.php' + planParam)
     ]);
 
     if (!rRes.ok || !wRes.ok) {
@@ -216,6 +269,8 @@ async function loadData() {
 
     recipes = rData.recipes || [];
     weekPlan = wData.weekPlan || [];
+    activePlanId = wData.plan_id || activePlanId;
+    activePlanPermission = wData.permission || 'edit';
   } catch (error) {
     console.error('Failed to load data:', error);
     redirectToLogin();
@@ -564,10 +619,11 @@ function renderWeekPlan() {
 }
 
 async function saveWeekPlan() {
+  if (activePlanPermission !== 'edit') return; // read-only plan
   try {
     const res = await fetchWithCSRF('/api/weekplan.php', {
       method: 'POST',
-      body: JSON.stringify({ weekPlan })
+      body: JSON.stringify({ plan_id: activePlanId, weekPlan })
     });
     const data = await res.json();
     if (!data.ok) {
@@ -913,6 +969,228 @@ function clearChecked() {
 }
 
 // ══════════════════════════════════════════════════
+//  PLAN SWITCHER
+// ══════════════════════════════════════════════════
+function isPremium() {
+  return currentUser && currentUser.tier === 'premium';
+}
+
+function isOwner(planId) {
+  const p = userPlans.find(p => p.id === planId);
+  return p && p.relation === 'owner';
+}
+
+async function loadPlans() {
+  try {
+    const res = await fetch('/api/plans.php');
+    const data = await res.json();
+    if (!data.ok) return;
+    userPlans = data.plans || [];
+    if (!activePlanId && userPlans.length > 0) {
+      // Default to first own plan
+      const ownPlan = userPlans.find(p => p.relation === 'owner') || userPlans[0];
+      activePlanId = ownPlan.id;
+    }
+  } catch (e) {
+    console.error('Failed to load plans:', e);
+  }
+}
+
+function renderPlanSwitcher() {
+  const switcher = document.getElementById('plan-switcher');
+  const tabs     = document.getElementById('plan-tabs');
+  const btnNew   = document.getElementById('btn-new-plan');
+  const btnShare = document.getElementById('btn-share-plan');
+  const btnDel   = document.getElementById('btn-delete-plan');
+  const banner   = document.getElementById('readonly-banner');
+
+  // Render plan tabs
+  tabs.innerHTML = userPlans.map(p => {
+    const isActive = p.id === activePlanId;
+    const label = p.relation === 'shared'
+      ? `${escHtml(p.name)} <span style="opacity:.5">↗</span>`
+      : escHtml(p.name);
+    const cls = isActive
+      ? 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-700 text-white'
+      : 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors';
+    return `<button onclick="switchPlan(${p.id})" class="${cls}">${label}</button>`;
+  }).join('');
+
+  // Show / hide plan switcher
+  const showSwitcher = isPremium() || userPlans.length > 1;
+  switcher.classList.toggle('hidden', !showSwitcher);
+
+  // "+ Neuer Plan" button
+  const canCreate = isPremium() && userPlans.filter(p => p.relation === 'owner').length < 2;
+  if (canCreate) {
+    btnNew.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors';
+    btnNew.title = '';
+  } else if (isPremium()) {
+    btnNew.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-600 cursor-not-allowed';
+    btnNew.title = 'Maximal 2 Pläne';
+  } else {
+    btnNew.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-600 cursor-not-allowed';
+    btnNew.title = 'Nur für Premium-Nutzer';
+  }
+
+  // "↗ Teilen" button — only owners of active plan, premium only
+  const canShare = isPremium() && isOwner(activePlanId);
+  if (canShare) {
+    btnShare.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors';
+    btnShare.title = '';
+  } else {
+    btnShare.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 text-zinc-600 cursor-not-allowed';
+    btnShare.title = isPremium() ? 'Nur für eigene Pläne' : 'Nur für Premium-Nutzer';
+  }
+
+  // "🗑 Plan löschen" — only when 2nd own plan is active
+  const ownPlans = userPlans.filter(p => p.relation === 'owner');
+  const showDel  = ownPlans.length > 1 && isOwner(activePlanId);
+  btnDel.classList.toggle('hidden', !showDel);
+  if (showDel) {
+    btnDel.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-zinc-800 hover:bg-red-900/50 text-zinc-500 hover:text-red-400 transition-colors';
+  }
+
+  // Read-only banner
+  banner.classList.toggle('hidden', activePlanPermission === 'edit');
+}
+
+async function switchPlan(planId) {
+  if (planId === activePlanId) return;
+  activePlanId = planId;
+  await loadData();
+  renderPlanSwitcher();
+  renderAll();
+}
+
+async function createPlan() {
+  if (!isPremium()) return;
+  const name = prompt('Name des neuen Plans:', 'Wochenplan 2');
+  if (!name) return;
+  try {
+    const res  = await fetchWithCSRF('/api/plans.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'create', name })
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error || 'Fehler beim Erstellen.'); return; }
+    userPlans.push(data.plan);
+    activePlanId = data.plan.id;
+    activePlanPermission = 'edit';
+    weekPlan = [];
+    renderPlanSwitcher();
+    renderAll();
+  } catch (e) {
+    alert('Fehler beim Erstellen des Plans.');
+  }
+}
+
+async function deletePlan() {
+  const plan = userPlans.find(p => p.id === activePlanId);
+  if (!plan || !confirm(`Plan „${plan.name}" wirklich löschen?`)) return;
+  try {
+    const res  = await fetchWithCSRF('/api/plans.php', {
+      method: 'DELETE',
+      body: JSON.stringify({ plan_id: activePlanId })
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error || 'Fehler beim Löschen.'); return; }
+    userPlans = userPlans.filter(p => p.id !== activePlanId);
+    const ownPlan = userPlans.find(p => p.relation === 'owner') || userPlans[0];
+    activePlanId = ownPlan.id;
+    await loadData();
+    renderPlanSwitcher();
+    renderAll();
+  } catch (e) {
+    alert('Fehler beim Löschen des Plans.');
+  }
+}
+
+// ── Share Modal ───────────────────────────────────
+function openShareModal() {
+  if (!isPremium() || !isOwner(activePlanId)) return;
+  document.getElementById('share-username-input').value = '';
+  document.getElementById('share-error').classList.add('hidden');
+  document.getElementById('share-error').textContent = '';
+  renderShareList();
+  document.getElementById('share-modal').classList.remove('hidden');
+}
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.add('hidden');
+}
+
+async function renderShareList() {
+  const listEl = document.getElementById('share-list');
+  listEl.innerHTML = '<p class="text-xs text-zinc-600">Lädt…</p>';
+  try {
+    const res  = await fetchWithCSRF('/api/plans.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'shares', plan_id: activePlanId })
+    });
+    const data = await res.json();
+    if (!data.ok || !data.shares.length) {
+      listEl.innerHTML = '<p class="text-xs text-zinc-600">Noch nicht geteilt.</p>';
+      return;
+    }
+    listEl.innerHTML = data.shares.map(s => `
+      <div class="flex items-center justify-between gap-2 py-2 border-t border-zinc-800">
+        <div>
+          <span class="text-sm text-zinc-200">${escHtml(s.display_name)}</span>
+          <span class="text-xs text-zinc-600 ml-1.5">${escHtml(s.username)}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-zinc-500">${s.permission === 'edit' ? 'Bearbeiten' : 'Lesen'}</span>
+          <button onclick="removeShare(${s.id})"
+            class="text-xs text-zinc-600 hover:text-red-400 transition-colors px-1.5 py-0.5 rounded bg-zinc-800 hover:bg-red-950/40">
+            ✕
+          </button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    listEl.innerHTML = '<p class="text-xs text-red-400">Fehler beim Laden.</p>';
+  }
+}
+
+async function addShare() {
+  const username   = document.getElementById('share-username-input').value.trim();
+  const permission = document.getElementById('share-permission-select').value;
+  const errEl      = document.getElementById('share-error');
+  errEl.classList.add('hidden');
+
+  if (!username) { document.getElementById('share-username-input').focus(); return; }
+
+  try {
+    const res  = await fetchWithCSRF('/api/plans.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'share', plan_id: activePlanId, username, permission })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      errEl.textContent = data.error || 'Fehler.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    document.getElementById('share-username-input').value = '';
+    renderShareList();
+  } catch (e) {
+    errEl.textContent = 'Verbindungsfehler.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+async function removeShare(userId) {
+  try {
+    const res  = await fetchWithCSRF('/api/plans.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'unshare', plan_id: activePlanId, user_id: userId })
+    });
+    const data = await res.json();
+    if (data.ok) renderShareList();
+  } catch (e) { /* silent */ }
+}
+
+// ══════════════════════════════════════════════════
 //  EXPORT / LOGOUT
 // ══════════════════════════════════════════════════
 function exportData() {
@@ -969,8 +1247,14 @@ async function init() {
     userDisplay.textContent = currentUser.display_name || currentUser.username;
   }
 
-  // Load data and render
+  // Load plan list (sets activePlanId to first own plan)
+  await loadPlans();
+
+  // Load recipe + week plan data
   await loadData();
+
+  // Render plan switcher, then full UI
+  renderPlanSwitcher();
   renderAll();
 }
 

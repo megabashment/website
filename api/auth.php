@@ -59,6 +59,7 @@ if ($action === 'status') {
                 'username' => $_SESSION['username'] ?? '',
                 'display_name' => $_SESSION['display_name'] ?? '',
                 'role' => $_SESSION['role'] ?? 'user',
+                'tier' => $_SESSION['tier'] ?? 'free',
             ]
         ]);
     } else {
@@ -84,7 +85,7 @@ if ($action === 'login') {
 
     try {
         $db = getDB();
-        $stmt = $db->prepare('SELECT id, username, display_name, password, role, status FROM users WHERE username = ?');
+        $stmt = $db->prepare('SELECT id, username, display_name, password, role, tier, status FROM users WHERE username = ?');
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
@@ -110,6 +111,7 @@ if ($action === 'login') {
         $_SESSION['username'] = $user['username'];
         $_SESSION['display_name'] = $user['display_name'];
         $_SESSION['role'] = $user['role'];
+        $_SESSION['tier'] = $user['tier'];
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
         // Update last_login timestamp
@@ -124,6 +126,7 @@ if ($action === 'login') {
                 'username' => $user['username'],
                 'display_name' => $user['display_name'],
                 'role' => $user['role'],
+                'tier' => $user['tier'],
             ]
         ]);
     } catch (Exception $e) {

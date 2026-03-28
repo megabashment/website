@@ -3,26 +3,26 @@
  * WEEK PLAN API ENDPOINT
  *
  * Handles reading and writing the week plan for the authenticated user.
- * Internally resolves plan_id from week_plans table.
- * Each user auto-gets a default plan on first access.
+ * Supports multiple plans via plan_id; falls back to the user's first plan.
  *
  * Endpoints:
- * - GET /api/weekplan.php        — fetch user's week plan
- * - POST /api/weekplan.php       — save entire week plan (upsert)
+ * - GET  /api/weekplan.php?plan_id=X  — fetch a specific plan (own or shared)
+ * - GET  /api/weekplan.php            — fetch first own plan (auto-create if none)
+ * - POST /api/weekplan.php            — save entire week plan; body: {plan_id, weekPlan}
  */
 
 require_once '../includes/auth_check.php';
 require_once '../includes/db.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
-$userId = $_SESSION['user_id'];
+$userId = (int)$_SESSION['user_id'];
 
 /**
- * Returns the plan_id for the current user.
+ * Returns the plan_id for the current user's first own plan.
  * Creates a default plan if none exists yet.
  */
 function getOrCreatePlan(PDO $db, int $userId): int {
-    $stmt = $db->prepare('SELECT id FROM week_plans WHERE owner_id = ? LIMIT 1');
+    $stmt = $db->prepare('SELECT id FROM week_plans WHERE owner_id = ? ORDER BY id ASC LIMIT 1');
     $stmt->execute([$userId]);
     $plan = $stmt->fetch();
 
@@ -35,14 +35,53 @@ function getOrCreatePlan(PDO $db, int $userId): int {
     return (int)$db->lastInsertId();
 }
 
+/**
+ * Checks whether $userId can access $planId.
+ * Returns ['allowed' => bool, 'permission' => 'edit'|'view']
+ */
+function checkPlanAccess(PDO $db, int $planId, int $userId): array {
+    // Own plan?
+    $own = $db->prepare('SELECT id FROM week_plans WHERE id = ? AND owner_id = ?');
+    $own->execute([$planId, $userId]);
+    if ($own->fetch()) {
+        return ['allowed' => true, 'permission' => 'edit'];
+    }
+
+    // Shared plan?
+    $shared = $db->prepare(
+        'SELECT permission FROM plan_shares WHERE plan_id = ? AND shared_with_user_id = ?'
+    );
+    $shared->execute([$planId, $userId]);
+    $row = $shared->fetch();
+    if ($row) {
+        return ['allowed' => true, 'permission' => $row['permission']];
+    }
+
+    return ['allowed' => false, 'permission' => null];
+}
+
 try {
     $db = getDB();
 
     // ─────────────────────────────────────────────────────────────────────
-    // GET: Fetch user's week plan
+    // GET: Fetch week plan
     // ─────────────────────────────────────────────────────────────────────
     if ($method === 'GET') {
-        $planId = getOrCreatePlan($db, $userId);
+        $requestedPlanId = isset($_GET['plan_id']) ? (int)$_GET['plan_id'] : null;
+
+        if ($requestedPlanId) {
+            $access = checkPlanAccess($db, $requestedPlanId, $userId);
+            if (!$access['allowed']) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => 'Kein Zugriff auf diesen Plan.']);
+                exit;
+            }
+            $planId     = $requestedPlanId;
+            $permission = $access['permission'];
+        } else {
+            $planId     = getOrCreatePlan($db, $userId);
+            $permission = 'edit';
+        }
 
         $stmt = $db->prepare(
             'SELECT day_name, recipe_id FROM week_plan_entries
@@ -59,7 +98,12 @@ try {
         }, $entries);
 
         http_response_code(200);
-        echo json_encode(['ok' => true, 'weekPlan' => $weekPlan]);
+        echo json_encode([
+            'ok'         => true,
+            'plan_id'    => $planId,
+            'permission' => $permission,
+            'weekPlan'   => $weekPlan,
+        ]);
         exit;
     }
 
@@ -74,6 +118,25 @@ try {
             http_response_code(400);
             echo json_encode(['ok' => false, 'error' => 'Ungültiger Wochenplan.']);
             exit;
+        }
+
+        // Resolve plan_id
+        $requestedPlanId = isset($input['plan_id']) ? (int)$input['plan_id'] : null;
+        if ($requestedPlanId) {
+            $access = checkPlanAccess($db, $requestedPlanId, $userId);
+            if (!$access['allowed']) {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => 'Kein Zugriff auf diesen Plan.']);
+                exit;
+            }
+            if ($access['permission'] !== 'edit') {
+                http_response_code(403);
+                echo json_encode(['ok' => false, 'error' => 'Keine Schreibrechte für diesen Plan.']);
+                exit;
+            }
+            $planId = $requestedPlanId;
+        } else {
+            $planId = getOrCreatePlan($db, $userId);
         }
 
         $expectedDays = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
@@ -113,8 +176,6 @@ try {
                 'recipe_id' => $recipeId,
             ];
         }
-
-        $planId = getOrCreatePlan($db, $userId);
 
         $delStmt = $db->prepare('DELETE FROM week_plan_entries WHERE plan_id = ?');
         $delStmt->execute([$planId]);
