@@ -112,21 +112,26 @@ try {
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     </head>
     <body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center p-4">
-        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-md w-full">
+        <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-2xl w-full">
             <h1 class="text-3xl font-bold text-red-400 mb-4">❌ Setup-Fehler</h1>
-            <p class="text-sm text-zinc-300 mb-4">
-                <strong>Fehler:</strong>
+            <p class="text-sm text-zinc-300 mb-2">
+                <strong>Fehlermeldung:</strong>
             </p>
-            <div class="bg-red-950/30 border border-red-900/50 rounded p-3 font-mono text-xs text-red-300 mb-4">
+            <div class="bg-red-950/30 border border-red-900/50 rounded p-4 font-mono text-xs text-red-300 mb-4 overflow-auto max-h-48">
                 <?= htmlspecialchars($e->getMessage()) ?>
+                <br><br>
+                <span class="text-zinc-400">File: <?= htmlspecialchars($e->getFile()) ?></span><br>
+                <span class="text-zinc-400">Line: <?= $e->getLine() ?></span>
             </div>
-            <p class="text-sm text-zinc-400">
-                Überprüfe, ob:
+            <p class="text-sm text-zinc-400 mb-2">
+                <strong>Überprüfe folgende Punkte:</strong>
             </p>
-            <ul class="text-sm text-zinc-400 ml-4 mt-2 space-y-1">
-                <li>• <code>includes/config.php</code> existiert und Credentials korrekt sind</li>
-                <li>• Die Datenbank erreichbar ist</li>
-                <li>• Die Tabellen mit <code>schema.sql</code> angelegt wurden</li>
+            <ul class="text-sm text-zinc-400 ml-4 space-y-1">
+                <li>✓ Existiert <code>includes/config.php</code> auf dem Server?</li>
+                <li>✓ Sind die DB-Credentials korrekt?</li>
+                <li>✓ Ist die Datenbank erreichbar?</li>
+                <li>✓ Wurden die Tabellen mit <code>schema.sql</code> angelegt?</li>
+                <li>✓ Hat die <code>users</code>-Tabelle die Spalten: id, username, display_name, password, role, created_at, last_login?</li>
             </ul>
         </div>
     </body>
