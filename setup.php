@@ -33,8 +33,8 @@ try {
         exit;
     }
 
-    // Generate random password
-    $password = bin2hex(random_bytes(6)); // 12-char hex string, e.g. "a3f2b8c1e4d9"
+    // Set password to 'admin' for testing
+    $password = 'admin';
     $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
 
     // Insert admin user
