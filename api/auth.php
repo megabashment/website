@@ -80,13 +80,20 @@ if ($action === 'login') {
 
     try {
         $db = getDB();
-        $stmt = $db->prepare('SELECT id, username, display_name, password, role FROM users WHERE username = ?');
+        $stmt = $db->prepare('SELECT id, username, display_name, password, role, status FROM users WHERE username = ?');
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
         if (!$user || !password_verify($password, $user['password'])) {
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Ungültige Anmeldedaten.']);
+            exit;
+        }
+
+        // Check if user account is active (not pending approval)
+        if ($user['status'] === 'pending') {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'error' => 'Dein Konto wartet noch auf Freischaltung durch den Admin.']);
             exit;
         }
 
@@ -129,6 +136,104 @@ if ($action === 'logout') {
     session_destroy();
     http_response_code(200);
     echo json_encode(['ok' => true]);
+    exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ACTION: register
+// ─────────────────────────────────────────────────────────────────────
+if ($action === 'register') {
+    $username = trim($input['username'] ?? '');
+    $display_name = trim($input['display_name'] ?? '');
+    $email = trim($input['email'] ?? '');
+    $password = $input['password'] ?? '';
+
+    // Validation
+    if (empty($username) || !preg_match('/^[a-z0-9_\-]{2,64}$/i', $username)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Ungültiger Benutzername (2-64 Zeichen, nur alphanumerisch).']);
+        exit;
+    }
+
+    if (empty($display_name) || strlen($display_name) > 128) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Anzeigename ist erforderlich (max. 128 Zeichen).']);
+        exit;
+    }
+
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Gültige E-Mail-Adresse erforderlich.']);
+        exit;
+    }
+
+    if (strlen($password) < 8) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'Passwort muss mindestens 8 Zeichen lang sein.']);
+        exit;
+    }
+
+    try {
+        $db = getDB();
+
+        // Check if username already exists
+        $checkStmt = $db->prepare('SELECT id FROM users WHERE username = ?');
+        $checkStmt->execute([$username]);
+        if ($checkStmt->fetch()) {
+            http_response_code(409);
+            echo json_encode(['ok' => false, 'error' => 'Benutzername existiert bereits.']);
+            exit;
+        }
+
+        // Check if email already exists
+        $emailCheckStmt = $db->prepare('SELECT id FROM users WHERE email = ?');
+        $emailCheckStmt->execute([$email]);
+        if ($emailCheckStmt->fetch()) {
+            http_response_code(409);
+            echo json_encode(['ok' => false, 'error' => 'E-Mail-Adresse ist bereits registriert.']);
+            exit;
+        }
+
+        // Hash password and insert user with pending status
+        $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        $stmt = $db->prepare(
+            'INSERT INTO users (username, display_name, email, password, role, status) VALUES (?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([$username, $display_name, $email, $passwordHash, 'user', 'pending']);
+        $userId = $db->lastInsertId();
+
+        // Send confirmation email to user (if sendMail is available)
+        if (function_exists('sendMail')) {
+            $subject = 'Dein Konto bei Wochenplaner wurde beantragt';
+            $body = <<<HTML
+            <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2>Registrierung beantragt</h2>
+                        <p>Hallo {$display_name},</p>
+                        <p>deine Registrierung wurde eingegangen. Dein Konto wird überprüft und du wirst benachrichtigt, sobald es von einem Administrator freigeschaltet wurde.</p>
+                        <p>Bis dahin kannst du dich noch nicht anmelden.</p>
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
+                    </div>
+                </body>
+            </html>
+            HTML;
+
+            sendMail($email, $subject, $body);
+        }
+
+        http_response_code(201);
+        echo json_encode([
+            'ok' => true,
+            'message' => 'Dein Konto wurde beantragt. Du wirst benachrichtigt, sobald es freigeschaltet wird.'
+        ]);
+        exit;
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'Registrierung fehlgeschlagen.']);
+        error_log('Register error: ' . $e->getMessage());
+    }
     exit;
 }
 

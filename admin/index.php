@@ -20,9 +20,13 @@ require_once '../includes/db.php';
 
 $db = getDB();
 
-// Fetch all users
-$stmt = $db->query('SELECT id, username, display_name, role, created_at, last_login FROM users ORDER BY created_at DESC');
+// Fetch active users
+$stmt = $db->query('SELECT id, username, display_name, email, role, created_at, last_login FROM users WHERE status = "active" ORDER BY created_at DESC');
 $users = $stmt->fetchAll();
+
+// Fetch pending users
+$pendingStmt = $db->query('SELECT id, username, display_name, email, created_at FROM users WHERE status = "pending" ORDER BY created_at DESC');
+$pendingUsers = $pendingStmt->fetchAll();
 
 $currentUserId = $_SESSION['user_id'];
 ?>
@@ -107,6 +111,49 @@ $currentUserId = $_SESSION['user_id'];
       </button>
     </form>
   </div>
+
+  <!-- Pending Users Section -->
+  <?php if (!empty($pendingUsers)): ?>
+  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-zinc-800 bg-amber-950/20">
+      <h2 class="text-lg font-semibold text-amber-300">⏳ Ausstehende Genehmigungen (<?= count($pendingUsers) ?>)</h2>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-zinc-800/50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Benutzername</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Anzeigename</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase">E-Mail</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Registriert am</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-zinc-800">
+          <?php foreach ($pendingUsers as $user): ?>
+          <tr class="hover:bg-zinc-800/30 transition-colors">
+            <td class="px-6 py-4 font-mono text-sm"><?= htmlspecialchars($user['username']) ?></td>
+            <td class="px-6 py-4"><?= htmlspecialchars($user['display_name']) ?></td>
+            <td class="px-6 py-4 text-xs text-zinc-400"><?= htmlspecialchars($user['email'] ?? '—') ?></td>
+            <td class="px-6 py-4 text-zinc-500 text-xs"><?= htmlspecialchars(substr($user['created_at'], 0, 10)) ?></td>
+            <td class="px-6 py-4 space-x-2">
+              <button onclick="approveUser(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['username'])) ?>')"
+                class="px-3 py-1 bg-zinc-800 hover:bg-green-900/60 text-green-400 hover:text-green-300 rounded text-xs transition-colors">
+                ✓ Freischalten
+              </button>
+              <button onclick="rejectUser(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['username'])) ?>')"
+                class="px-3 py-1 bg-zinc-800 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded text-xs transition-colors">
+                ✕ Ablehnen
+              </button>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <!-- Users List -->
   <div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
@@ -290,6 +337,58 @@ async function deleteUser(userId, username) {
       location.reload();
     } else {
       alert(data.error || 'Fehler beim Löschen.');
+    }
+  } catch (error) {
+    alert('Fehler beim Senden der Anfrage.');
+    console.error(error);
+  }
+}
+
+async function approveUser(userId, username) {
+  if (!confirm(`Benutzer "${username}" wirklich freischalten?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/admin/users.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', user_id: userId })
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      alert('✅ Benutzer freigegeben!');
+      location.reload();
+    } else {
+      alert(data.error || 'Fehler beim Freischalten.');
+    }
+  } catch (error) {
+    alert('Fehler beim Senden der Anfrage.');
+    console.error(error);
+  }
+}
+
+async function rejectUser(userId, username) {
+  if (!confirm(`Benutzer "${username}" wirklich ablehnen und löschen?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/admin/users.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject', user_id: userId })
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+      alert('✅ Benutzer abgelehnt!');
+      location.reload();
+    } else {
+      alert(data.error || 'Fehler beim Ablehnen.');
     }
   } catch (error) {
     alert('Fehler beim Senden der Anfrage.');

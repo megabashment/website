@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wochenplaner — Anmeldung</title>
+  <title>Registrierung — Wochenplaner</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; padding: 0; overflow: hidden; }
     #bg { position: fixed; top: 0; left: 0; z-index: 0; display: block; }
-    #login-container { position: relative; z-index: 1; }
+    #register-container { position: relative; z-index: 1; }
     input:focus { outline: none; }
     .glowing-button {
       transition: all 0.3s ease;
@@ -23,15 +23,16 @@
 
 <canvas id="bg"></canvas>
 
-<div id="login-container" class="min-h-screen flex items-center justify-center p-4">
+<div id="register-container" class="min-h-screen flex items-center justify-center p-4">
   <div class="w-full max-w-sm">
     <div class="backdrop-blur-sm">
       <div class="text-center mb-8">
         <h1 class="text-4xl font-thin tracking-[0.3em] text-white mb-4">Wochenplaner</h1>
-        <p class="text-zinc-500 text-sm">Rezepte planen · Einkaufen · Genießen</p>
+        <h2 class="text-2xl font-semibold text-zinc-300">Registrierung</h2>
+        <p class="text-zinc-500 text-sm mt-2">Erstellung eines neuen Kontos</p>
       </div>
 
-      <form id="login-form" class="space-y-5">
+      <form id="register-form" class="space-y-5">
         <div>
           <label for="username" class="block text-xs text-zinc-500 uppercase tracking-widest mb-3">
             Benutzername
@@ -40,7 +41,35 @@
             id="username"
             type="text"
             placeholder="z. B. papa"
-            autocomplete="username"
+            pattern="[a-z0-9_\-]{2,64}"
+            title="2-64 Zeichen, nur Buchstaben, Zahlen, _ und -"
+            required
+            class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
+          />
+        </div>
+
+        <div>
+          <label for="display-name" class="block text-xs text-zinc-500 uppercase tracking-widest mb-3">
+            Anzeigename
+          </label>
+          <input
+            id="display-name"
+            type="text"
+            placeholder="z. B. Papa"
+            maxlength="128"
+            required
+            class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
+          />
+        </div>
+
+        <div>
+          <label for="email" class="block text-xs text-zinc-500 uppercase tracking-widest mb-3">
+            E-Mail
+          </label>
+          <input
+            id="email"
+            type="email"
+            placeholder="deine@email.de"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
           />
@@ -53,8 +82,22 @@
           <input
             id="password"
             type="password"
-            placeholder="Dein Passwort"
-            autocomplete="current-password"
+            placeholder="Mindestens 8 Zeichen"
+            minlength="8"
+            required
+            class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
+          />
+        </div>
+
+        <div>
+          <label for="password-confirm" class="block text-xs text-zinc-500 uppercase tracking-widest mb-3">
+            Passwort wiederholen
+          </label>
+          <input
+            id="password-confirm"
+            type="password"
+            placeholder="Passwort wiederholen"
+            minlength="8"
             required
             class="w-full bg-transparent border-b border-zinc-700 px-0 py-2 text-sm focus:border-violet-500 transition-colors placeholder-zinc-700 text-zinc-100"
           />
@@ -64,27 +107,27 @@
           <!-- Error text will be inserted here -->
         </div>
 
+        <div id="success-message" class="hidden text-sm text-green-400 bg-green-950/30 border border-green-900/50 rounded-lg p-3">
+          <!-- Success text will be inserted here -->
+        </div>
+
         <button
           type="submit"
           class="glowing-button w-full mt-8 px-5 py-2.5 bg-violet-600 text-white rounded-lg text-sm font-semibold transition-colors"
         >
-          Anmelden
+          Registrieren
         </button>
 
-        <div class="text-center space-y-2 mt-6 text-sm">
-          <div>
-            <a href="/forgot-password.html" class="text-zinc-400 hover:text-zinc-300 transition-colors">
-              Passwort vergessen?
-            </a>
-          </div>
-          <div>
-            <span class="text-zinc-600">Noch kein Konto?</span>
-            <a href="/register.html" class="text-violet-400 hover:text-violet-300 transition-colors ml-1">
-              → Registrieren
-            </a>
-          </div>
+        <div class="text-center">
+          <a href="/login.html" class="text-sm text-zinc-400 hover:text-zinc-300 transition-colors">
+            ← Zurück zur Anmeldung
+          </a>
         </div>
       </form>
+
+      <div class="text-xs text-zinc-600 text-center mt-8">
+        Dein Konto muss von einem Administrator freigeschaltet werden, bevor du dich anmelden kannst.
+      </div>
     </div>
   </div>
 </div>
@@ -191,38 +234,62 @@ window.addEventListener('resize', () => {
 });
 
 // Form submission
-document.getElementById('login-form').addEventListener('submit', async (e) => {
+document.getElementById('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
   const username = document.getElementById('username').value.trim();
+  const display_name = document.getElementById('display-name').value.trim();
+  const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
+  const password_confirm = document.getElementById('password-confirm').value;
   const errorDiv = document.getElementById('error-message');
+  const successDiv = document.getElementById('success-message');
 
-  // Clear previous errors
+  // Clear previous messages
   errorDiv.classList.add('hidden');
+  successDiv.classList.add('hidden');
   errorDiv.textContent = '';
+  successDiv.textContent = '';
+
+  // Validate passwords match
+  if (password !== password_confirm) {
+    errorDiv.classList.remove('hidden');
+    errorDiv.textContent = 'Passwörter stimmen nicht überein.';
+    return;
+  }
 
   try {
     const response = await fetch('/api/auth.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', username, password })
+      body: JSON.stringify({
+        action: 'register',
+        username,
+        display_name,
+        email,
+        password
+      })
     });
 
     const data = await response.json();
 
     if (data.ok) {
-      // Login successful, redirect to main app
-      window.location.href = '/index.php';
+      successDiv.classList.remove('hidden');
+      successDiv.textContent = 'Dein Konto wurde beantragt! Du wirst benachrichtigt, sobald es freigeschaltet wird.';
+      document.getElementById('register-form').reset();
+
+      // Redirect after delay
+      setTimeout(() => {
+        window.location.href = '/login.html';
+      }, 3000);
     } else {
-      // Show error
       errorDiv.classList.remove('hidden');
-      errorDiv.textContent = data.error || 'Anmeldung fehlgeschlagen.';
+      errorDiv.textContent = data.error || 'Registrierung fehlgeschlagen.';
     }
   } catch (error) {
     errorDiv.classList.remove('hidden');
     errorDiv.textContent = 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.';
-    console.error('Login error:', error);
+    console.error('Register error:', error);
   }
 });
 

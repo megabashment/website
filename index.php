@@ -42,6 +42,12 @@ $csrf = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
       <span id="user-badge" class="px-3 py-1.5 text-xs font-medium bg-violet-900/40 text-violet-300 rounded-lg">
         👤 <span id="user-display">...</span>
       </span>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
+      <a href="/admin/"
+        class="px-3 py-1.5 text-xs font-medium bg-purple-900/40 hover:bg-purple-800/40 rounded-lg transition-colors text-purple-300">
+        ⚙ Admin
+      </a>
+      <?php endif; ?>
       <button onclick="exportData()"
         class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300">
         ↑ Export

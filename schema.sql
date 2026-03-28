@@ -14,8 +14,12 @@ CREATE TABLE `users` (
   `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `username` VARCHAR(64) NOT NULL UNIQUE,
   `display_name` VARCHAR(128) NOT NULL,
+  `email` VARCHAR(255) NULL UNIQUE,
   `password` VARCHAR(255) NOT NULL,
   `role` ENUM('admin','user') NOT NULL DEFAULT 'user',
+  `status` ENUM('pending','active') NOT NULL DEFAULT 'active',
+  `reset_token` VARCHAR(64) NULL,
+  `reset_token_expires` DATETIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `last_login` DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

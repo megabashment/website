@@ -218,6 +218,90 @@ try {
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // ACTION: approve
+    // ─────────────────────────────────────────────────────────────────────
+    if ($action === 'approve') {
+        $userId = (int)($input['user_id'] ?? 0);
+
+        if ($userId <= 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'Ungültige Benutzer-ID.']);
+            exit;
+        }
+
+        // Check if user exists and is pending
+        $checkStmt = $db->prepare('SELECT id, email, display_name FROM users WHERE id = ? AND status = "pending"');
+        $checkStmt->execute([$userId]);
+        $user = $checkStmt->fetch();
+
+        if (!$user) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'Benutzer nicht gefunden oder nicht ausstehend.']);
+            exit;
+        }
+
+        // Update status to active
+        $stmt = $db->prepare('UPDATE users SET status = "active" WHERE id = ?');
+        $stmt->execute([$userId]);
+
+        // Send approval email if email is available
+        if (!empty($user['email']) && function_exists('sendMail')) {
+            $subject = 'Dein Konto bei Wochenplaner wurde freigegeben';
+            $body = <<<HTML
+            <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2>Willkommen!</h2>
+                        <p>Hallo {$user['display_name']},</p>
+                        <p>dein Konto wurde freigegeben und ist nun aktiv. Du kannst dich jetzt anmelden:</p>
+                        <p><a href="{APP_URL}/login.html" style="background-color: #7c3aed; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Zur Anmeldung gehen</a></p>
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
+                    </div>
+                </body>
+            </html>
+            HTML;
+
+            sendMail($user['email'], $subject, $body);
+        }
+
+        http_response_code(200);
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ACTION: reject
+    // ─────────────────────────────────────────────────────────────────────
+    if ($action === 'reject') {
+        $userId = (int)($input['user_id'] ?? 0);
+
+        if ($userId <= 0) {
+            http_response_code(400);
+            echo json_encode(['ok' => false, 'error' => 'Ungültige Benutzer-ID.']);
+            exit;
+        }
+
+        // Check if user exists and is pending
+        $checkStmt = $db->prepare('SELECT id FROM users WHERE id = ? AND status = "pending"');
+        $checkStmt->execute([$userId]);
+
+        if (!$checkStmt->fetch()) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'Benutzer nicht gefunden oder nicht ausstehend.']);
+            exit;
+        }
+
+        // Delete the pending user
+        $stmt = $db->prepare('DELETE FROM users WHERE id = ? AND status = "pending"');
+        $stmt->execute([$userId]);
+
+        http_response_code(200);
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Invalid action
     // ─────────────────────────────────────────────────────────────────────
     http_response_code(400);
