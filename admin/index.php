@@ -72,6 +72,13 @@ $currentUserId = $_SESSION['user_id'];
             maxlength="128" required
             class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
         </div>
+
+        <div>
+          <label for="new-email" class="block text-xs text-zinc-500 uppercase tracking-widest mb-2">E-Mail (optional)</label>
+          <input type="email" id="new-email" name="email" placeholder="z. B. papa@example.de"
+            maxlength="255"
+            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors" />
+        </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,6 +196,7 @@ async function submitCreateForm(e) {
   e.preventDefault();
   const username = document.getElementById('new-username').value.trim();
   const display_name = document.getElementById('new-display-name').value.trim();
+  const email = document.getElementById('new-email').value.trim();
   const password = document.getElementById('new-password').value;
   const role = document.getElementById('new-role').value;
   const errorDiv = document.getElementById('create-error');
@@ -200,7 +208,7 @@ async function submitCreateForm(e) {
     const res = await fetch('/admin/users.php', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', username, display_name, password, role })
+      body: JSON.stringify({ action: 'create', username, display_name, email, password, role })
     });
 
     const data = await res.json();

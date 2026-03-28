@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/PHPMailer.php -o PHPMailer.php)",
+      "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/SMTP.php -o SMTP.php)",
+      "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/Exception.php -o Exception.php)"
+    ]
+  }
+}

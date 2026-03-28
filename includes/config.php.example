@@ -16,3 +16,17 @@ define('DB_CHARSET', 'utf8mb4');
 
 // Optional: Set to false on production for security
 define('DEBUG', false);
+
+// ─────────────────────────────────────────────────────────────────────
+// SMTP CONFIGURATION (for email sending)
+// ─────────────────────────────────────────────────────────────────────
+// Find your Strato email credentials in the Strato control panel under "E-Mail".
+// You can also use other SMTP providers (Gmail, Outlook, etc).
+
+define('SMTP_HOST',      'smtp.strato.de');           // Strato SMTP server
+define('SMTP_PORT',      587);                        // Port for STARTTLS
+define('SMTP_USER',      'your-email@example.de');   // Your Strato email address
+define('SMTP_PASS',      'your-email-password');     // Email password
+define('SMTP_FROM',      'your-email@example.de');   // Sender email (usually same as SMTP_USER)
+define('SMTP_FROM_NAME', 'Wochenplaner');            // Display name in sent emails
+define('APP_URL',        'https://yoursite.de');     // Your app URL (used in password reset links)

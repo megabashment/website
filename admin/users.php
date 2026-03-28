@@ -3,7 +3,7 @@
  * ADMIN USER MANAGEMENT ACTIONS
  *
  * Handles POST requests for:
- * - create: Create a new user
+ * - create: Create a new user (and send welcome email)
  * - delete: Delete a user
  * - reset_password: Reset a user's password
  */
@@ -22,6 +22,8 @@ if (empty($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 }
 
 require_once '../includes/db.php';
+require_once '../includes/config.php';
+require_once '../includes/mailer.php';
 
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = $input['action'] ?? null;
@@ -35,6 +37,7 @@ try {
     if ($action === 'create') {
         $username = trim($input['username'] ?? '');
         $display_name = trim($input['display_name'] ?? '');
+        $email = trim($input['email'] ?? '');
         $password = $input['password'] ?? '';
         $role = $input['role'] ?? 'user';
 
@@ -63,6 +66,24 @@ try {
             exit;
         }
 
+        // Validate email if provided
+        if (!empty($email)) {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Ungültige E-Mail-Adresse.']);
+                exit;
+            }
+
+            // Check if email already exists
+            $emailCheckStmt = $db->prepare('SELECT id FROM users WHERE email = ?');
+            $emailCheckStmt->execute([$email]);
+            if ($emailCheckStmt->fetch()) {
+                http_response_code(409);
+                echo json_encode(['ok' => false, 'error' => 'E-Mail-Adresse existiert bereits.']);
+                exit;
+            }
+        }
+
         // Check if username already exists
         $checkStmt = $db->prepare('SELECT id FROM users WHERE username = ?');
         $checkStmt->execute([$username]);
@@ -75,10 +96,37 @@ try {
         // Hash password and insert
         $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
         $stmt = $db->prepare(
-            'INSERT INTO users (username, display_name, password, role) VALUES (?, ?, ?, ?)'
+            'INSERT INTO users (username, display_name, email, password, role) VALUES (?, ?, ?, ?, ?)'
         );
-        $stmt->execute([$username, $display_name, $passwordHash, $role]);
+        $stmt->execute([$username, $display_name, !empty($email) ? $email : null, $passwordHash, $role]);
         $userId = $db->lastInsertId();
+
+        // Send welcome email if email is provided
+        if (!empty($email)) {
+            $subject = 'Willkommen bei Wochenplaner!';
+            $body = <<<HTML
+            <html>
+                <body style="font-family: Arial, sans-serif; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2>Willkommen!</h2>
+                        <p>Hallo {$display_name},</p>
+                        <p>dein Account wurde erstellt. Hier sind deine Anmeldedaten:</p>
+                        <div style="background-color: #f5f5f5; border-left: 4px solid #7c3aed; padding: 15px; margin: 20px 0;">
+                            <p><strong>Benutzername:</strong> {$username}</p>
+                            <p><strong>Passwort:</strong> {$password}</p>
+                        </div>
+                        <p>Du kannst dich hier anmelden:</p>
+                        <p><a href="{APP_URL}" style="background-color: #7c3aed; color: white; padding: 12px 20px; text-decoration: none; border-radius: 6px; display: inline-block;">Zur App gehen</a></p>
+                        <p style="margin-top: 30px; font-size: 14px; color: #999;">Ändere bitte dein Passwort, wenn du dich das erste Mal anmeldest.</p>
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        <p style="font-size: 12px; color: #999;">© Wochenplaner</p>
+                    </div>
+                </body>
+            </html>
+            HTML;
+
+            sendMail($email, $subject, $body);
+        }
 
         http_response_code(201);
         echo json_encode([
@@ -87,6 +135,7 @@ try {
                 'id' => (int)$userId,
                 'username' => $username,
                 'display_name' => $display_name,
+                'email' => !empty($email) ? $email : null,
                 'role' => $role,
             ]
         ]);
