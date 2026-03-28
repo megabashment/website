@@ -108,6 +108,29 @@ $csrf = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
         </button>
       </div>
     </div>
+    <!-- AI Recipe Suggestion -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+      <h2 class="text-base font-semibold mb-4 text-zinc-200">✨ KI-Rezeptvorschlag</h2>
+      <div class="flex gap-2">
+        <input
+          id="ai-query"
+          type="text"
+          placeholder="z. B. nudeln mit tomatensauce"
+          class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors placeholder-zinc-600 text-zinc-100"
+        />
+        <button
+          id="btn-ai-suggest"
+          onclick="aiSuggestRecipes()"
+          class="px-4 py-2.5 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white rounded-xl text-sm font-semibold transition-colors shrink-0 shadow-lg shadow-violet-900/30"
+        >
+          Vorschlagen
+        </button>
+      </div>
+      <div id="ai-loading" class="hidden text-sm text-zinc-500 py-3">Vorschläge werden generiert…</div>
+      <div id="ai-error" class="hidden text-sm text-red-400 bg-red-950/30 border border-red-900/50 rounded-lg p-3 mt-3"></div>
+      <div id="ai-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mt-4"></div>
+    </div>
+
     <div id="recipe-count" class="text-xs text-zinc-600 mb-3"></div>
     <div id="recipe-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
   </div>
@@ -366,6 +389,99 @@ async function deleteRecipe(id) {
     console.error('Error deleting recipe:', error);
     alert('Fehler beim Löschen des Rezepts.');
   }
+}
+
+// ══════════════════════════════════════════════════
+//  AI RECIPE SUGGESTION
+// ══════════════════════════════════════════════════
+let _aiSuggestions = [];
+
+document.getElementById('ai-query').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') aiSuggestRecipes();
+});
+
+async function aiSuggestRecipes() {
+  const queryInput = document.getElementById('ai-query');
+  const query = queryInput.value.trim();
+  if (!query) { queryInput.focus(); return; }
+
+  const loadingEl = document.getElementById('ai-loading');
+  const errorEl   = document.getElementById('ai-error');
+  const resultsEl = document.getElementById('ai-results');
+  const btn       = document.getElementById('btn-ai-suggest');
+
+  loadingEl.classList.remove('hidden');
+  errorEl.classList.add('hidden');
+  resultsEl.innerHTML = '';
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  try {
+    // Collect existing ingredient names (stripped of amounts) for consistent naming
+    const existingIngredients = [...new Set(
+      recipes.flatMap(r =>
+        parseIngredients(r.ingredients).map(i => i.replace(/\s*\(.*?\)/, '').trim())
+      )
+    )].filter(Boolean).slice(0, 50);
+
+    const res = await fetchWithCSRF('/api/ai-suggest.php', {
+      method: 'POST',
+      body: JSON.stringify({ query, existingIngredients })
+    });
+    const data = await res.json();
+
+    if (!data.ok) {
+      errorEl.textContent = data.error || 'Fehler beim Generieren.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    _aiSuggestions = data.suggestions || [];
+    renderAISuggestions(_aiSuggestions);
+  } catch (e) {
+    errorEl.textContent = 'Verbindungsfehler. Bitte erneut versuchen.';
+    errorEl.classList.remove('hidden');
+  } finally {
+    loadingEl.classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Vorschlagen';
+  }
+}
+
+function renderAISuggestions(suggestions) {
+  const resultsEl = document.getElementById('ai-results');
+  if (!suggestions.length) {
+    resultsEl.innerHTML = '<p class="text-sm text-zinc-600 col-span-3 py-2">Keine Vorschläge gefunden.</p>';
+    return;
+  }
+  resultsEl.innerHTML = suggestions.map((s, i) => {
+    const ings    = parseIngredients(s.ingredients);
+    const preview = ings.slice(0, 6);
+    const more    = ings.length - preview.length;
+    return `<div class="bg-zinc-800/60 border border-zinc-700 hover:border-violet-700/40 rounded-xl p-4 flex flex-col gap-2 transition-colors">
+      <h3 class="font-semibold text-sm text-zinc-100">${escHtml(s.name)}</h3>
+      <ul class="text-xs text-zinc-400 space-y-0.5 flex-1">
+        ${preview.map(item => `<li class="truncate">· ${escHtml(item)}</li>`).join('')}
+        ${more > 0 ? `<li class="text-zinc-600">+ ${more} weitere</li>` : ''}
+      </ul>
+      <button onclick="useAISuggestion(${i})"
+        class="mt-auto w-full px-3 py-1.5 bg-violet-700 hover:bg-violet-600 active:bg-violet-800 text-white text-xs font-semibold rounded-lg transition-colors">
+        Übernehmen &amp; bearbeiten
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function useAISuggestion(index) {
+  const s = _aiSuggestions[index];
+  if (!s) return;
+  document.getElementById('recipe-id').value = '';
+  document.getElementById('recipe-name').value = s.name;
+  document.getElementById('recipe-ingredients').value = s.ingredients;
+  document.getElementById('form-title').textContent = 'Neues Rezept';
+  document.getElementById('btn-cancel').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('recipe-name').focus();
 }
 
 // ══════════════════════════════════════════════════

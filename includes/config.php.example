@@ -30,3 +30,11 @@ define('SMTP_PASS',      'your-email-password');     // Email password
 define('SMTP_FROM',      'your-email@example.de');   // Sender email (usually same as SMTP_USER)
 define('SMTP_FROM_NAME', 'Wochenplaner');            // Display name in sent emails
 define('APP_URL',        'https://yoursite.de');     // Your app URL (used in password reset links)
+
+// ─────────────────────────────────────────────────────────────────────
+// AI CONFIGURATION (for recipe suggestions)
+// ─────────────────────────────────────────────────────────────────────
+// Get a free API key at: https://aistudio.google.com → "Get API key"
+// Free tier: 1,500 requests/day, no credit card required.
+
+define('GEMINI_API_KEY', 'your-gemini-api-key-here');
