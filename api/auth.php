@@ -28,7 +28,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$action = $_GET['action'] ?? $_POST['action'] ?? null;
+// Parse input (JSON body or form data)
+$input = [];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+}
+
+// Get action from GET query, JSON body, or form data
+$action = $_GET['action'] ?? $input['action'] ?? $_POST['action'] ?? null;
 
 // ─────────────────────────────────────────────────────────────────────
 // ACTION: status
@@ -58,7 +65,6 @@ if ($action === 'status') {
 // ACTION: login
 // ─────────────────────────────────────────────────────────────────────
 if ($action === 'login') {
-    $input = json_decode(file_get_contents('php://input'), true);
     $username = trim($input['username'] ?? '');
     $password = $input['password'] ?? '';
 
