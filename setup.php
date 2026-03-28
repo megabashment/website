@@ -39,9 +39,13 @@ try {
 
     // Insert admin user
     $stmt = $db->prepare(
-        'INSERT INTO users (username, display_name, password, role) VALUES (?, ?, ?, ?)'
+        'INSERT INTO users (username, display_name, password, role, created_at) VALUES (?, ?, ?, ?, NOW())'
     );
-    $stmt->execute(['admin', 'Administrator', $passwordHash, 'admin']);
+    $result = $stmt->execute(['admin', 'Administrator', $passwordHash, 'admin']);
+
+    if (!$result) {
+        throw new Exception('Insert failed: ' . implode(', ', $stmt->errorInfo()));
+    }
 
     // Mark setup as done
     file_put_contents(__DIR__ . '/.setup_done', 'Setup completed at ' . date('Y-m-d H:i:s'));
