@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rezept-Wochenplaner</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    .tab-active { background: rgb(124 58 237); color: #fff; }
+    .tab-inactive { color: rgb(161 161 170); }
+    .tab-inactive:hover { background: rgb(39 39 42); color: rgb(228 228 231); }
+    .chevron-open { transform: rotate(0deg); transition: transform .2s; }
+    .chevron-closed { transform: rotate(-90deg); transition: transform .2s; }
+    .checked-label { text-decoration: line-through; color: rgb(82 82 91); }
+    input[type=checkbox] { accent-color: rgb(124 58 237); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgb(24 24 27); }
+    ::-webkit-scrollbar-thumb { background: rgb(63 63 70); border-radius: 3px; }
+    * { box-sizing: border-box; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen">
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight text-white">🍽️ Wochenplaner</h1>
+      <p class="text-zinc-500 text-sm mt-1">Rezepte planen &middot; Einkaufen &middot; Genießen</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <button onclick="exportData()"
+        class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300">
+        ↑ Export
+      </button>
+      <label class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300 cursor-pointer">
+        ↓ Import
+        <input type="file" accept=".json" onchange="importData(event)" class="hidden" />
+      </label>
+      <button onclick="clearAll()"
+        class="px-3 py-1.5 text-xs font-medium bg-red-950/60 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-lg transition-colors">
+        ✕ Alle löschen
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab Nav -->
+  <div class="flex gap-1 bg-zinc-900 border border-zinc-800 p-1 rounded-2xl mb-6 w-fit">
+    <button id="tab-rezepte" onclick="showTab('rezepte')"
+      class="tab-active px-5 py-2 rounded-xl text-sm font-medium transition-all">
+      📋 Rezepte
+    </button>
+    <button id="tab-wochenplan" onclick="showTab('wochenplan')"
+      class="tab-inactive px-5 py-2 rounded-xl text-sm font-medium transition-all">
+      📅 Wochenplan
+    </button>
+    <button id="tab-einkaufsliste" onclick="showTab('einkaufsliste')"
+      class="tab-inactive px-5 py-2 rounded-xl text-sm font-medium transition-all">
+      🛒 Einkaufsliste
+    </button>
+  </div>
+
+  <!-- ═══════════════ PANEL: Rezepte ═══════════════ -->
+  <div id="panel-rezepte">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6">
+      <h2 id="form-title" class="text-base font-semibold mb-4 text-zinc-200">Neues Rezept</h2>
+      <input id="recipe-id" type="hidden" value="" />
+      <div class="mb-4">
+        <label class="block text-xs text-zinc-500 uppercase tracking-widest mb-1.5">Rezeptname</label>
+        <input id="recipe-name" type="text" placeholder="z. B. Spaghetti Bolognese"
+          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors placeholder-zinc-600 text-zinc-100" />
+      </div>
+      <div class="mb-5">
+        <label class="block text-xs text-zinc-500 uppercase tracking-widest mb-1.5">
+          Zutaten <span class="normal-case text-zinc-600">(eine pro Zeile oder kommagetrennt)</span>
+        </label>
+        <textarea id="recipe-ingredients" rows="5"
+          placeholder="Hackfleisch&#10;Spaghetti (400g)&#10;Zwiebel, Knoblauch&#10;Dosentomaten"
+          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors placeholder-zinc-600 text-zinc-100 resize-none"></textarea>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="saveRecipe()"
+          class="px-5 py-2 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-violet-900/30">
+          Speichern
+        </button>
+        <button id="btn-cancel" onclick="cancelEdit()"
+          class="hidden px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-medium transition-colors text-zinc-300">
+          Abbrechen
+        </button>
+      </div>
+    </div>
+    <div id="recipe-count" class="text-xs text-zinc-600 mb-3"></div>
+    <div id="recipe-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+  </div>
+
+  <!-- ═══════════════ PANEL: Wochenplan ═══════════════ -->
+  <div id="panel-wochenplan" class="hidden">
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button onclick="suggestWeek()" id="btn-suggest"
+        class="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-violet-900/30">
+        ✨ 7 Rezepte vorschlagen
+      </button>
+      <button onclick="suggestWeek()" id="btn-resuggest"
+        class="hidden px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm font-semibold transition-colors text-zinc-300">
+        🔀 Andere 7 vorschlagen
+      </button>
+      <button onclick="goShopping()" id="btn-go-shopping"
+        class="hidden px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-emerald-900/30">
+        🛒 Einkaufsliste erstellen
+      </button>
+    </div>
+    <div id="week-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"></div>
+    <div id="week-empty" class="text-center py-24 text-zinc-700">
+      <p class="text-6xl mb-4">📅</p>
+      <p class="text-lg font-semibold text-zinc-600">Noch kein Wochenplan</p>
+      <p class="text-sm mt-2 text-zinc-700">Klicke auf „7 Rezepte vorschlagen" um zu starten.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ PANEL: Einkaufsliste ═══════════════ -->
+  <div id="panel-einkaufsliste" class="hidden">
+    <div id="shopping-empty" class="text-center py-24 text-zinc-700">
+      <p class="text-6xl mb-4">🛒</p>
+      <p class="text-lg font-semibold text-zinc-600">Keine Einkaufsliste</p>
+      <p class="text-sm mt-2 text-zinc-700">Erstelle zuerst einen Wochenplan und klicke dann auf<br>„Einkaufsliste erstellen".</p>
+    </div>
+    <div id="shopping-header" class="hidden flex items-center justify-between mb-4">
+      <p class="text-sm text-zinc-500">Zutaten für <span id="shopping-recipe-count" class="font-medium text-zinc-300"></span></p>
+      <button onclick="clearChecked()" class="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Abhaken zurücksetzen</button>
+    </div>
+    <div id="shopping-content" class="hidden space-y-3"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  DATA & STATE
+// ══════════════════════════════════════════════════
+const DAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+
+const DEFAULT_RECIPES = [
+  {
+    id: 'def-1', name: 'Spaghetti Bolognese',
+    ingredients: 'Rinderhackfleisch (500g)\nSpaghetti (400g)\nZwiebel (1 groß)\nKnoblauch (3 Zehen)\nDosentomaten (400g)\nTomatenmark (2 EL)\nOlivenöl\nParmesan\nOregano\nSalz, Pfeffer'
+  },
+  {
+    id: 'def-2', name: 'Hähnchen-Curry',
+    ingredients: 'Hähnchenbrust (600g)\nKokosmilch (400ml)\nReis (300g)\nZwiebel\nKnoblauch\nIngwer (1 Stück)\nRote Paprika\nCurrypaste (2 EL)\nKoriander\nSalz'
+  },
+  {
+    id: 'def-3', name: 'Kartoffelgratin',
+    ingredients: 'Kartoffeln (1kg)\nSahne (200ml)\nGeriebener Käse (150g)\nKnoblauch (2 Zehen)\nButter\nMuskatnuss\nSalz, Pfeffer'
+  },
+  {
+    id: 'def-4', name: 'Pfannkuchen',
+    ingredients: 'Mehl (250g)\nMilch (500ml)\nEier (3 Stück)\nButter\nSalz\nZucker (1 EL)\nVanilleextrakt'
+  },
+  {
+    id: 'def-5', name: 'Lachs mit Ofengemüse',
+    ingredients: 'Lachsfilet (500g)\nZucchini\nKarotten (2 Stück)\nZitrone\nOlivenöl\nKnoblauch\nDill\nSalz, Pfeffer'
+  },
+  {
+    id: 'def-6', name: 'Gemüsesuppe',
+    ingredients: 'Karotten (3 Stück)\nSellerie\nLauch\nZwiebel\nKartoffeln (400g)\nGemüsebrühe (1.5 L)\nPetersilie\nSalz, Pfeffer'
+  },
+  {
+    id: 'def-7', name: 'Spinat-Ricotta-Pasta',
+    ingredients: 'Blattspinat (300g)\nRicotta (250g)\nPenne (400g)\nKnoblauch (2 Zehen)\nOlivenöl\nParmesan\nMuskatnuss\nSalz, Pfeffer'
+  }
+];
+
+let recipes = [];
+let weekPlan = [];
+let shoppingList = {};
+
+function loadData() {
+  const r = localStorage.getItem('wpl-recipes');
+  const w = localStorage.getItem('wpl-weekplan');
+  recipes = r ? JSON.parse(r) : JSON.parse(JSON.stringify(DEFAULT_RECIPES));
+  weekPlan = w ? JSON.parse(w) : [];
+  if (!r) saveRecipes();
+}
+
+function saveRecipes() { localStorage.setItem('wpl-recipes', JSON.stringify(recipes)); }
+function saveWeekPlan() { localStorage.setItem('wpl-weekplan', JSON.stringify(weekPlan)); }
+
+// ══════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════
+function showTab(name) {
+  ['rezepte','wochenplan','einkaufsliste'].forEach(t => {
+    document.getElementById('panel-' + t).classList.toggle('hidden', t !== name);
+    const btn = document.getElementById('tab-' + t);
+    if (t === name) {
+      btn.className = btn.className.replace('tab-inactive','tab-active');
+    } else {
+      btn.className = btn.className.replace('tab-active','tab-inactive');
+    }
+  });
+  if (name === 'einkaufsliste') {
+    buildShoppingList();
+    renderShoppingList();
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  RECIPES
+// ══════════════════════════════════════════════════
+function parseIngredients(raw) {
+  return raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderRecipes() {
+  const list = document.getElementById('recipe-list');
+  const count = document.getElementById('recipe-count');
+  count.textContent = recipes.length + ' Rezept' + (recipes.length !== 1 ? 'e' : '') + ' gespeichert';
+
+  if (recipes.length === 0) {
+    list.innerHTML = `<div class="col-span-2 text-center py-12 text-zinc-600">
+      <p class="text-4xl mb-3">📖</p>
+      <p class="font-medium">Noch keine Rezepte</p>
+      <p class="text-sm mt-1">Füge dein erstes Rezept oben hinzu!</p>
+    </div>`;
+    return;
+  }
+
+  list.innerHTML = recipes.map(r => {
+    const ingredients = parseIngredients(r.ingredients);
+    const preview = ingredients.slice(0, 6);
+    const more = ingredients.length - preview.length;
+    return `<div class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-5 flex flex-col gap-3 transition-colors group">
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="font-semibold text-sm leading-snug text-zinc-100">${escHtml(r.name)}</h3>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button onclick="editRecipe('${r.id}')"
+            title="Bearbeiten"
+            class="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100 transition-colors text-xs leading-none">✏️</button>
+          <button onclick="deleteRecipe('${r.id}')"
+            title="Löschen"
+            class="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-900/70 text-zinc-400 hover:text-red-400 transition-colors text-xs leading-none">🗑️</button>
+        </div>
+      </div>
+      <ul class="text-xs text-zinc-500 space-y-0.5">
+        ${preview.map(i => `<li class="truncate">· ${escHtml(i)}</li>`).join('')}
+        ${more > 0 ? `<li class="text-zinc-700">+ ${more} weitere Zutaten</li>` : ''}
+      </ul>
+      <div class="text-xs text-zinc-700 pt-1 border-t border-zinc-800">${ingredients.length} Zutaten</div>
+    </div>`;
+  }).join('');
+}
+
+function saveRecipe() {
+  const id = document.getElementById('recipe-id').value;
+  const name = document.getElementById('recipe-name').value.trim();
+  const ingredients = document.getElementById('recipe-ingredients').value.trim();
+  if (!name) { alert('Bitte einen Rezeptnamen eingeben.'); return; }
+  if (!ingredients) { alert('Bitte mindestens eine Zutat eingeben.'); return; }
+  if (id) {
+    const idx = recipes.findIndex(r => r.id === id);
+    if (idx !== -1) recipes[idx] = { id, name, ingredients };
+  } else {
+    recipes.push({ id: Date.now().toString(), name, ingredients });
+  }
+  saveRecipes();
+  renderRecipes();
+  cancelEdit();
+}
+
+function editRecipe(id) {
+  const r = recipes.find(r => r.id === id);
+  if (!r) return;
+  document.getElementById('recipe-id').value = r.id;
+  document.getElementById('recipe-name').value = r.name;
+  document.getElementById('recipe-ingredients').value = r.ingredients;
+  document.getElementById('form-title').textContent = 'Rezept bearbeiten';
+  document.getElementById('btn-cancel').classList.remove('hidden');
+  document.getElementById('recipe-name').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  document.getElementById('recipe-id').value = '';
+  document.getElementById('recipe-name').value = '';
+  document.getElementById('recipe-ingredients').value = '';
+  document.getElementById('form-title').textContent = 'Neues Rezept';
+  document.getElementById('btn-cancel').classList.add('hidden');
+}
+
+function deleteRecipe(id) {
+  const r = recipes.find(r => r.id === id);
+  if (!r || !confirm(`"${r.name}" wirklich löschen?`)) return;
+  recipes = recipes.filter(r => r.id !== id);
+  weekPlan = weekPlan.filter(e => e.recipeId !== id);
+  saveRecipes();
+  saveWeekPlan();
+  renderRecipes();
+  renderWeekPlan();
+}
+
+// ══════════════════════════════════════════════════
+//  WEEK PLAN
+// ══════════════════════════════════════════════════
+const DAY_COLORS = [
+  { border: '#7c3aed33', bg: '#7c3aed0a', badge: '#7c3aed33', text: '#c4b5fd' },
+  { border: '#2563eb33', bg: '#2563eb0a', badge: '#2563eb33', text: '#93c5fd' },
+  { border: '#05966933', bg: '#0596690a', badge: '#05966933', text: '#6ee7b7' },
+  { border: '#d9770633', bg: '#d977060a', badge: '#d9770633', text: '#fcd34d' },
+  { border: '#e1173733', bg: '#e117370a', badge: '#e1173733', text: '#fca5a5' },
+  { border: '#0e748133', bg: '#0e74810a', badge: '#0e748133', text: '#67e8f9' },
+  { border: '#c2410c33', bg: '#c2410c0a', badge: '#c2410c33', text: '#fdba74' },
+];
+
+function suggestWeek() {
+  if (recipes.length < 1) { alert('Bitte zuerst Rezepte anlegen.'); return; }
+  const shuffled = [...recipes].sort(() => Math.random() - 0.5);
+  weekPlan = DAYS.map((day, i) => ({
+    day,
+    recipeId: shuffled[i % shuffled.length].id
+  }));
+  saveWeekPlan();
+  renderWeekPlan();
+}
+
+function changeDay(dayIndex) {
+  const current = weekPlan[dayIndex].recipeId;
+  const options = recipes.length > 1 ? recipes.filter(r => r.id !== current) : recipes;
+  weekPlan[dayIndex].recipeId = options[Math.floor(Math.random() * options.length)].id;
+  saveWeekPlan();
+  renderWeekPlan();
+}
+
+function renderWeekPlan() {
+  const grid = document.getElementById('week-grid');
+  const empty = document.getElementById('week-empty');
+  const btnSuggest = document.getElementById('btn-suggest');
+  const btnResuggest = document.getElementById('btn-resuggest');
+  const btnShopping = document.getElementById('btn-go-shopping');
+
+  const validPlan = weekPlan.filter(e => recipes.find(r => r.id === e.recipeId));
+
+  if (validPlan.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    btnSuggest.classList.remove('hidden');
+    btnResuggest.classList.add('hidden');
+    btnShopping.classList.add('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  btnSuggest.classList.add('hidden');
+  btnResuggest.classList.remove('hidden');
+  btnShopping.classList.remove('hidden');
+
+  grid.innerHTML = weekPlan.map((entry, i) => {
+    const recipe = recipes.find(r => r.id === entry.recipeId);
+    if (!recipe) return '';
+    const c = DAY_COLORS[i];
+    const ingredients = parseIngredients(recipe.ingredients);
+    const preview = ingredients.slice(0, 4);
+    return `<div style="border-color:${c.border};background:${c.bg}" class="border rounded-2xl p-4 flex flex-col gap-3 hover:scale-[1.015] transition-transform cursor-default">
+      <div class="flex items-center justify-between gap-2">
+        <span style="background:${c.badge};color:${c.text}" class="text-xs font-semibold px-2.5 py-1 rounded-full">${entry.day}</span>
+        <button onclick="changeDay(${i})" title="Anderes Rezept" style="color:${c.text}"
+          class="text-sm hover:opacity-60 transition-opacity leading-none">↻</button>
+      </div>
+      <div>
+        <h3 class="font-semibold text-sm leading-snug text-zinc-100">${escHtml(recipe.name)}</h3>
+        <p class="text-xs mt-1" style="color:${c.text};opacity:.7">${ingredients.length} Zutaten</p>
+      </div>
+      <ul class="text-xs text-zinc-500 space-y-0.5">
+        ${preview.map(ing => `<li class="truncate">· ${escHtml(ing)}</li>`).join('')}
+        ${ingredients.length > 4 ? `<li style="color:${c.text};opacity:.4">+${ingredients.length - 4} weitere</li>` : ''}
+      </ul>
+    </div>`;
+  }).join('');
+}
+
+function goShopping() {
+  buildShoppingList();
+  renderShoppingList();
+  showTab('einkaufsliste');
+}
+
+// ══════════════════════════════════════════════════
+//  SHOPPING LIST  (quantities + purchase suggestions)
+// ══════════════════════════════════════════════════
+
+const CATEGORY_KEYWORDS = {
+  '🥦 Gemüse & Obst': [
+    'zwiebel','knoblauch','tomate','paprika','karott','möhre','kartoffel','zucchini',
+    'spinat','salat','brokkoli','pilz','champignon','lauch','porree','sellerie',
+    'gurke','apfel','banane','birne','zitrone','limette','orange','beere',
+    'petersilie','basilikum','thymian','rosmarin','schnittlauch','koriander','dill',
+    'ingwer','blumenkohl','erbse','mais','bohne','rucola','feldsalat','pak choi',
+    'frühlingszwiebel','schalotte','spargel','artischocke','aubergine'
+  ],
+  '🥩 Fleisch & Fisch': [
+    'hähnchen','hühnchen','rind','hack','schwein','speck','bacon','wurst',
+    'lachs','thunfisch','garnele','schnitzel','steak','pute','lamm',
+    'filet','brät','fleisch','fisch','salami','schinken','chorizo',
+    'entenbrust','wildlachs','forelle','hering','sardine','kabeljau'
+  ],
+  '🥛 Milchprodukte & Eier': [
+    'milch','butter','käse','sahne','joghurt','ei ','eier','quark',
+    'mozzarella','parmesan','crème','frischkäse','ricotta','schmand',
+    'gouda','emmentaler','feta','brie','camembert','gruyère','mascarpone',
+    'buttermilch','kefir','skyr'
+  ],
+  '🫙 Vorrat & Trockenes': [
+    'nudel','spaghetti','pasta','penne','rigatoni','fusilli','reis',
+    'mehl','zucker','öl','olivenöl','sonnenblumenöl','essig','brühe',
+    'tomatenmark','kokosmilch','sojasauce','senf','honig','sirup',
+    'brot','paniermehl','muskat','oregano','lorbeer','paprikapulver',
+    'curry','kurkuma','kreuzkümmel','zimt','vanille','backpulver','hefe',
+    'salz','pfeffer','gewürz','konserve','linse','kichererbse',
+    'bulgur','quinoa','couscous','polenta','hafer','müsli',
+    'schokolade','kakao','nuss','mandel','rosine'
+  ],
+};
+
+function categorize(name) {
+  const lower = name.toLowerCase();
+  for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (kws.some(k => lower.includes(k))) return cat;
+  }
+  return '📦 Sonstiges';
+}
+
+// ── Quantity parsing ──────────────────────────────
+const UNIT_MAP = {
+  'kg':      { factor: 1000, base: 'g' },
+  'g':       { factor: 1,    base: 'g' },
+  'liter':   { factor: 1000, base: 'ml' },
+  'l':       { factor: 1000, base: 'ml' },
+  'ml':      { factor: 1,    base: 'ml' },
+  'stück':   { factor: 1,    base: 'Stk.' },
+  'stck':    { factor: 1,    base: 'Stk.' },
+  'zehe':    { factor: 1,    base: 'Zehen' },
+  'zehen':   { factor: 1,    base: 'Zehen' },
+  'bund':    { factor: 1,    base: 'Bund' },
+  'el':      { factor: 1,    base: 'EL' },
+  'tl':      { factor: 1,    base: 'TL' },
+  'dose':    { factor: 1,    base: 'Dose(n)' },
+  'packung': { factor: 1,    base: 'Pkt.' },
+  'pkt':     { factor: 1,    base: 'Pkt.' },
+  'becher':  { factor: 1,    base: 'Becher' },
+  'scheibe': { factor: 1,    base: 'Scheibe(n)' },
+  'scheiben':{ factor: 1,    base: 'Scheibe(n)' },
+  'prise':   { factor: 1,    base: 'Prise(n)' },
+  'tasse':   { factor: 1,    base: 'Tasse(n)' },
+};
+
+function parseIngredientFull(raw) {
+  const str = raw.trim();
+  const unitKeys = Object.keys(UNIT_MAP).join('|');
+  const pattern = new RegExp(
+    '(\\d+(?:[.,]\\d+)?)\\s*(' + unitKeys + ')(?:\\b|\\.)',
+    'i'
+  );
+  let amount = null, unit = null, name = str;
+
+  const m = str.match(pattern);
+  if (m) {
+    const num = parseFloat(m[1].replace(',', '.'));
+    const key = m[2].toLowerCase();
+    const mapped = UNIT_MAP[key];
+    if (mapped) { amount = num * mapped.factor; unit = mapped.base; }
+    else         { amount = num; unit = m[2]; }
+    name = str.replace(m[0], '').replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+  } else {
+    // plain count: "3 Zwiebeln"
+    const cm = str.match(/^(\d+)\s+([A-ZÜÄÖ].+)/);
+    if (cm) { amount = parseInt(cm[1]); unit = 'Stk.'; name = cm[2]; }
+    else { name = str.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim(); }
+  }
+  name = name.replace(/^[,\-\s·]+|[,\-\s·]+$/g, '').trim() || str.replace(/\(.*?\)/g,'').trim();
+  return { name, amount, unit };
+}
+
+// Canonical key for ingredient grouping (handles German plurals)
+function canonical(name) {
+  return name.toLowerCase()
+    .replace(/ä/g,'a').replace(/ö/g,'o').replace(/ü/g,'u').replace(/ß/g,'ss')
+    .replace(/[^a-z0-9]/g,'')
+    .replace(/n$/, '');   // "Nudeln"→"nudel", "Tomaten"→"tomate", "Zwiebeln"→"zwiebel"
+}
+
+// ── Purchase suggestion table ─────────────────────
+// NOTE: more-specific entries MUST come before less-specific ones (tomatenmark before tomate etc.)
+const PURCHASE_TABLE = [
+  { m:['nudel','spaghetti','penne','fusilli','rigatoni','tagliatell','farfalle'],
+    unit:'g',  size:500,  label:'Packung',  labelP:'Packungen', sfx:'à 500 g' },
+  { m:['reis'],
+    unit:'g',  size:1000, label:'Packung',  labelP:'Packungen', sfx:'à 1 kg' },
+  { m:['mehl'],
+    unit:'g',  size:1000, label:'Packung',  labelP:'Packungen', sfx:'à 1 kg' },
+  { m:['kokosmilch'],
+    unit:'ml', size:400,  label:'Dose',     labelP:'Dosen',     sfx:'à 400 ml' },
+  { m:['milch'],
+    unit:'ml', size:1000, label:'Liter',    labelP:'Liter',     sfx:'à 1 L' },
+  { m:['sahne'],
+    unit:'ml', size:200,  label:'Becher',   labelP:'Becher',    sfx:'à 200 ml' },
+  { m:['butter'],
+    unit:'g',  size:250,  label:'Packung',  labelP:'Packungen', sfx:'à 250 g' },
+  { m:['joghurt','skyr'],
+    unit:'g',  size:500,  label:'Becher',   labelP:'Becher',    sfx:'à 500 g' },
+  { m:['ricotta'],
+    unit:'g',  size:250,  label:'Becher',   labelP:'Becher',    sfx:'à 250 g' },
+  { m:['frischka','schmand','quark'],
+    unit:'g',  size:200,  label:'Becher',   labelP:'Becher',    sfx:'à 200 g' },
+  { m:['parmesan'],
+    unit:'g',  size:100,  label:'Stück',    labelP:'Stück',     sfx:'à 100 g' },
+  { m:['mozzarella'],
+    unit:'g',  size:125,  label:'Kugel',    labelP:'Kugeln',    sfx:'à 125 g' },
+  { m:['tomatenmark'],                               // BEFORE generic 'tomate'!
+    unit:'g',  size:200,  label:'Tube',     labelP:'Tuben',     sfx:'à 200 g' },
+  { m:['dosentomate'],
+    unit:'g',  size:400,  label:'Dose',     labelP:'Dosen',     sfx:'à 400 g' },
+  { m:['hackfleisch','rinderhack','schweinehack'],
+    unit:'g',  size:500,  label:'Packung',  labelP:'Packungen', sfx:'à 500 g' },
+  { m:['hahnche','huhnche','putenbrust'],
+    unit:'g',  size:500,  label:'Packung',  labelP:'Packungen', sfx:'à 500 g' },
+  { m:['lachs'],
+    unit:'g',  size:200,  label:'Filet',    labelP:'Filets',    sfx:'à 200 g' },
+  { m:['olivenol','sonnenblumenol','rapsol'],
+    unit:'ml', size:500,  label:'Flasche',  labelP:'Flaschen',  sfx:'à 500 ml' },
+  { m:['bruhe'],
+    unit:'ml', size:500,  label:'Glas',     labelP:'Gläser',    sfx:'à 500 ml' },
+];
+
+function getPurchaseSuggestion(canon, amount, unit) {
+  if (!amount || !unit) return null;
+  for (const pu of PURCHASE_TABLE) {
+    if (pu.unit !== unit) continue;
+    if (!pu.m.some(k => canon.includes(k))) continue;
+    const count = Math.ceil(amount / pu.size);
+    return { count, text: count + ' ' + (count === 1 ? pu.label : pu.labelP) + ' (' + pu.sfx + ')' };
+  }
+  return null;
+}
+
+function fmtAmt(amount, unit) {
+  if (!amount) return '';
+  const n = unit === 'g'  && amount >= 1000 ? (amount/1000)  + ' kg'  :
+            unit === 'ml' && amount >= 1000 ? (amount/1000)  + ' L'   :
+            (Number.isInteger(amount) ? amount : +amount.toFixed(1)) + (unit ? ' '+unit : '');
+  return n.replace(/\.0 /, ' ');
+}
+
+// ── Build ─────────────────────────────────────────
+function buildShoppingList() {
+  // canonical key → { displayName, unit, totalAmount, perRecipe[], category }
+  const grouped = new Map();
+
+  weekPlan.forEach(entry => {
+    const recipe = recipes.find(r => r.id === entry.recipeId);
+    if (!recipe) return;
+
+    parseIngredients(recipe.ingredients).forEach(raw => {
+      const { name, amount, unit } = parseIngredientFull(raw);
+      if (!name || name.length < 2) return;
+      const key = canonical(name);
+      if (!key) return;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          displayName: name,
+          unit: unit,
+          totalAmount: amount || 0,
+          perRecipe: [],
+          category: categorize(name),
+        });
+      } else {
+        const g = grouped.get(key);
+        if (amount && g.unit === unit) g.totalAmount += amount;
+        else if (amount && !g.totalAmount) { g.totalAmount = amount; g.unit = unit; }
+      }
+
+      const g = grouped.get(key);
+      const pr = g.perRecipe.find(p => p.recipeName === recipe.name);
+      if (pr) {
+        pr.count++;
+        if (amount && pr.unit === unit) pr.amount = (pr.amount || 0) + amount;
+      } else {
+        g.perRecipe.push({ recipeName: recipe.name, amount, unit, count: 1 });
+      }
+    });
+  });
+
+  const result = {};
+  grouped.forEach(item => {
+    if (!result[item.category]) result[item.category] = [];
+    result[item.category].push(item);
+  });
+  shoppingList = result;
+}
+
+// ── Render ────────────────────────────────────────
+function renderShoppingList() {
+  const empty   = document.getElementById('shopping-empty');
+  const header  = document.getElementById('shopping-header');
+  const content = document.getElementById('shopping-content');
+  const rcCount = document.getElementById('shopping-recipe-count');
+
+  if (weekPlan.length === 0 || Object.keys(shoppingList).length === 0) {
+    empty.classList.remove('hidden');
+    header.classList.add('hidden');
+    content.classList.add('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  header.classList.remove('hidden');
+  content.classList.remove('hidden');
+
+  const cnt = new Set(weekPlan.map(e => e.recipeId)).size;
+  rcCount.textContent = cnt + ' Rezept' + (cnt !== 1 ? 'e' : '');
+
+  const CAT_ORDER = ['🥦 Gemüse & Obst','🥩 Fleisch & Fisch','🥛 Milchprodukte & Eier','🫙 Vorrat & Trockenes','📦 Sonstiges'];
+  const allCats = [...CAT_ORDER.filter(c => shoppingList[c]),
+                   ...Object.keys(shoppingList).filter(c => !CAT_ORDER.includes(c))];
+
+  content.innerHTML = allCats.map((cat, ci) => {
+    const items = shoppingList[cat];
+    if (!items) return '';
+    return `<div class="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <button onclick="toggleSection(${ci})"
+        class="w-full flex items-center justify-between px-5 py-4 hover:bg-zinc-800/40 transition-colors text-left">
+        <div class="flex items-center gap-3">
+          <span class="font-semibold text-sm">${cat}</span>
+          <span class="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-500 rounded-full tabular-nums">${items.length}</span>
+        </div>
+        <span id="chevron-${ci}" class="chevron-open text-zinc-600 text-xs select-none">▼</span>
+      </button>
+      <div id="section-${ci}" class="border-t border-zinc-800 px-5 py-4">
+        <ul class="space-y-3.5">
+          ${items.map((item, ii) => renderShoppingItem(item, ci, ii)).join('')}
+        </ul>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderShoppingItem(item, ci, ii) {
+  const canon    = canonical(item.displayName);
+  const purchase = getPurchaseSuggestion(canon, item.totalAmount, item.unit);
+  const multi    = item.perRecipe.length > 1 || (item.perRecipe[0]?.count > 1);
+
+  // Amount / purchase line
+  let amtHtml = '';
+  if (purchase) {
+    amtHtml = `<span class="text-violet-400 font-semibold">${purchase.text}</span>`;
+    if (item.totalAmount) {
+      amtHtml += `<span class="text-zinc-600"> · ${fmtAmt(item.totalAmount, item.unit)} gesamt</span>`;
+    }
+  } else if (item.totalAmount) {
+    amtHtml = `<span class="text-zinc-400">${fmtAmt(item.totalAmount, item.unit)}</span>`;
+  }
+
+  // Per-recipe breakdown (shown when ingredient appears in multiple recipes or multiple times)
+  let breakdown = '';
+  if (multi) {
+    breakdown = '<ul class="mt-1 ml-7 space-y-0.5">' +
+      item.perRecipe.map(p => {
+        let txt = escHtml(p.recipeName);
+        if (p.count > 1) txt += ' <span class="text-zinc-700">×' + p.count + '</span>';
+        if (p.amount)    txt += '<span class="text-zinc-600">: ' + escHtml(fmtAmt(p.amount, p.unit)) + '</span>';
+        return '<li class="text-xs text-zinc-600">↳ ' + txt + '</li>';
+      }).join('') +
+    '</ul>';
+  }
+
+  return `<li>
+    <div class="flex items-start gap-3">
+      <input type="checkbox" id="chk-${ci}-${ii}" onchange="toggleItem('${ci}-${ii}')"
+        class="w-4 h-4 rounded shrink-0 cursor-pointer mt-0.5" />
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <label id="lbl-${ci}-${ii}" for="chk-${ci}-${ii}"
+            class="text-sm text-zinc-200 font-medium cursor-pointer select-none transition-colors">${escHtml(item.displayName)}</label>
+          ${amtHtml ? '<span class="text-xs">' + amtHtml + '</span>' : ''}
+        </div>
+        ${breakdown}
+      </div>
+    </div>
+  </li>`;
+}
+
+function toggleSection(ci) {
+  const el = document.getElementById('section-' + ci);
+  const ch = document.getElementById('chevron-' + ci);
+  el.classList.toggle('hidden');
+  ch.className = (el.classList.contains('hidden') ? 'chevron-closed' : 'chevron-open') + ' text-zinc-600 text-xs select-none';
+}
+
+function toggleItem(key) {
+  const lbl = document.getElementById('lbl-' + key);
+  const checked = document.getElementById('chk-' + key).checked;
+  lbl.className = checked
+    ? 'text-sm font-medium cursor-pointer select-none transition-colors checked-label'
+    : 'text-sm text-zinc-200 font-medium cursor-pointer select-none transition-colors';
+}
+
+function clearChecked() {
+  document.querySelectorAll('#shopping-content input[type=checkbox]:checked').forEach(chk => {
+    chk.checked = false;
+    const lbl = document.getElementById('lbl-' + chk.id.replace('chk-',''));
+    if (lbl) lbl.className = 'text-sm text-zinc-200 font-medium cursor-pointer select-none transition-colors';
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  EXPORT / IMPORT / CLEAR
+// ══════════════════════════════════════════════════
+function exportData() {
+  const data = { version: 1, exportDate: new Date().toISOString(), recipes, weekPlan };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wochenplaner-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (Array.isArray(data.recipes)) { recipes = data.recipes; saveRecipes(); }
+      if (Array.isArray(data.weekPlan)) { weekPlan = data.weekPlan; saveWeekPlan(); }
+      renderAll();
+      alert('✅ Import erfolgreich! ' + recipes.length + ' Rezepte geladen.');
+    } catch {
+      alert('❌ Fehler beim Import. Bitte prüfe die JSON-Datei.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function clearAll() {
+  if (!confirm('Wirklich ALLE Rezepte und den gesamten Wochenplan löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.')) return;
+  recipes = [];
+  weekPlan = [];
+  shoppingList = {};
+  saveRecipes();
+  saveWeekPlan();
+  renderAll();
+  showTab('rezepte');
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+function renderAll() {
+  renderRecipes();
+  renderWeekPlan();
+}
+
+loadData();
+renderAll();
+</script>
+
+</body>
+</html>
+<!--
+  ╔══════════════════════════════════════════════════╗
+  ║  REZEPT-WOCHENPLANER — Starten & Öffnen         ║
+  ╠══════════════════════════════════════════════════╣
+  ║  1. Einfach diese Datei mit einem Browser öffnen ║
+  ║     (Doppelklick auf wochenplaner.html)          ║
+  ║                                                  ║
+  ║  2. Chrome, Firefox, Edge oder Safari genügen.   ║
+  ║     Kein Server, keine Installation nötig.       ║
+  ║                                                  ║
+  ║  3. Alle Daten werden im localStorage des        ║
+  ║     Browsers gespeichert — lokal & privat.       ║
+  ║                                                  ║
+  ║  4. Tipp: Nutze Export → JSON, um Rezepte auf    ║
+  ║     ein anderes Gerät zu übertragen.             ║
+  ╚══════════════════════════════════════════════════╝
+-->
