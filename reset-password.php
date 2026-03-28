@@ -244,7 +244,7 @@ document.getElementById('reset-password-form')?.addEventListener('submit', async
     const response = await fetch('/api/auth.php?action=status');
     const data = await response.json();
     if (data.ok) {
-      window.location.href = '/index.php';
+      window.location.href = '/dashboard.php';
     }
   } catch (error) {
     // Silently ignore — not logged in

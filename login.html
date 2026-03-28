@@ -133,7 +133,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
     if (data.ok) {
       submitBtn.textContent = 'Erfolgreich!';
-      window.location.href = '/index.php';
+
+      window.location.href = '/dashboard.php';
     } else {
       errorDiv.classList.remove('hidden');
       errorDiv.textContent = data.error || 'Anmeldung fehlgeschlagen.';
@@ -154,7 +155,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     const response = await fetch('/api/auth.php?action=status');
     const data = await response.json();
     if (data.ok) {
-      window.location.href = '/index.php';
+      window.location.href = '/dashboard.php';
     }
   } catch (error) {
     // Silently ignore — not logged in
