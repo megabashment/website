@@ -1,0 +1,2 @@
+# Prevent direct access to this admin directory
+# Access is controlled via PHP session checks in the admin files themselves

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wochenplaner — Anmeldung</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    input:focus { outline: none; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex items-center justify-center p-4">
+
+<div class="w-full max-w-md">
+  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 shadow-xl">
+
+    <div class="text-center mb-8">
+      <h1 class="text-4xl mb-2">🍽️</h1>
+      <h2 class="text-2xl font-bold tracking-tight text-white">Wochenplaner</h2>
+      <p class="text-zinc-500 text-sm mt-2">Rezepte planen · Einkaufen · Genießen</p>
+    </div>
+
+    <form id="login-form" class="space-y-5">
+
+      <div>
+        <label for="username" class="block text-xs text-zinc-500 uppercase tracking-widest mb-2">
+          Benutzername
+        </label>
+        <input
+          id="username"
+          type="text"
+          placeholder="z. B. papa"
+          autocomplete="username"
+          required
+          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors placeholder-zinc-600 text-zinc-100"
+        />
+      </div>
+
+      <div>
+        <label for="password" class="block text-xs text-zinc-500 uppercase tracking-widest mb-2">
+          Passwort
+        </label>
+        <input
+          id="password"
+          type="password"
+          placeholder="Dein Passwort"
+          autocomplete="current-password"
+          required
+          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 text-sm focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors placeholder-zinc-600 text-zinc-100"
+        />
+      </div>
+
+      <div id="error-message" class="hidden text-sm text-red-400 bg-red-950/30 border border-red-900/50 rounded-lg p-3">
+        <!-- Error text will be inserted here -->
+      </div>
+
+      <button
+        type="submit"
+        class="w-full mt-6 px-5 py-2.5 bg-violet-600 hover:bg-violet-500 active:bg-violet-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-violet-900/30"
+      >
+        Anmelden
+      </button>
+
+    </form>
+
+    <div class="text-xs text-zinc-600 text-center mt-8">
+      Die Daten werden sicher auf dem Server gespeichert.
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('error-message');
+
+  // Clear previous errors
+  errorDiv.classList.add('hidden');
+  errorDiv.textContent = '';
+
+  try {
+    const response = await fetch('/api/auth.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login', username, password })
+    });
+
+    const data = await response.json();
+
+    if (data.ok) {
+      // Login successful, redirect to main app
+      window.location.href = '/index.php';
+    } else {
+      // Show error
+      errorDiv.classList.remove('hidden');
+      errorDiv.textContent = data.error || 'Anmeldung fehlgeschlagen.';
+    }
+  } catch (error) {
+    errorDiv.classList.remove('hidden');
+    errorDiv.textContent = 'Ein Fehler ist aufgetreten. Bitte versuche es später erneut.';
+    console.error('Login error:', error);
+  }
+});
+
+// Optional: Test for existing session and redirect if already logged in
+(async () => {
+  try {
+    const response = await fetch('/api/auth.php?action=status');
+    const data = await response.json();
+    if (data.ok) {
+      window.location.href = '/index.php';
+    }
+  } catch (error) {
+    // Silently ignore — not logged in
+  }
+})();
+</script>
+
+</body>
+</html>

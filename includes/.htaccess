@@ -1,0 +1,2 @@
+# Prevent direct access to this directory via HTTP
+Deny from all

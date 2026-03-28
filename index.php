@@ -1,8 +1,17 @@
+<?php
+session_start();
+if (empty($_SESSION['user_id'])) {
+    header('Location: /login.html');
+    exit;
+}
+$csrf = $_SESSION['csrf_token'] ??= bin2hex(random_bytes(32));
+?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrf) ?>">
   <title>Rezept-Wochenplaner</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
@@ -29,18 +38,17 @@
       <h1 class="text-3xl font-bold tracking-tight text-white">🍽️ Wochenplaner</h1>
       <p class="text-zinc-500 text-sm mt-1">Rezepte planen &middot; Einkaufen &middot; Genießen</p>
     </div>
-    <div class="flex gap-2 flex-wrap">
+    <div class="flex gap-2 flex-wrap items-center">
+      <span id="user-badge" class="px-3 py-1.5 text-xs font-medium bg-violet-900/40 text-violet-300 rounded-lg">
+        👤 <span id="user-display">...</span>
+      </span>
       <button onclick="exportData()"
         class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300">
         ↑ Export
       </button>
-      <label class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300 cursor-pointer">
-        ↓ Import
-        <input type="file" accept=".json" onchange="importData(event)" class="hidden" />
-      </label>
-      <button onclick="clearAll()"
-        class="px-3 py-1.5 text-xs font-medium bg-red-950/60 hover:bg-red-900/60 text-red-400 hover:text-red-300 rounded-lg transition-colors">
-        ✕ Alle löschen
+      <button onclick="logout()"
+        class="px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors text-zinc-300">
+        ↪ Abmelden
       </button>
     </div>
   </div>
@@ -140,51 +148,66 @@
 // ══════════════════════════════════════════════════
 const DAYS = ['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
 
-const DEFAULT_RECIPES = [
-  {
-    id: 'def-1', name: 'Spaghetti Bolognese',
-    ingredients: 'Rinderhackfleisch (500g)\nSpaghetti (400g)\nZwiebel (1 groß)\nKnoblauch (3 Zehen)\nDosentomaten (400g)\nTomatenmark (2 EL)\nOlivenöl\nParmesan\nOregano\nSalz, Pfeffer'
-  },
-  {
-    id: 'def-2', name: 'Hähnchen-Curry',
-    ingredients: 'Hähnchenbrust (600g)\nKokosmilch (400ml)\nReis (300g)\nZwiebel\nKnoblauch\nIngwer (1 Stück)\nRote Paprika\nCurrypaste (2 EL)\nKoriander\nSalz'
-  },
-  {
-    id: 'def-3', name: 'Kartoffelgratin',
-    ingredients: 'Kartoffeln (1kg)\nSahne (200ml)\nGeriebener Käse (150g)\nKnoblauch (2 Zehen)\nButter\nMuskatnuss\nSalz, Pfeffer'
-  },
-  {
-    id: 'def-4', name: 'Pfannkuchen',
-    ingredients: 'Mehl (250g)\nMilch (500ml)\nEier (3 Stück)\nButter\nSalz\nZucker (1 EL)\nVanilleextrakt'
-  },
-  {
-    id: 'def-5', name: 'Lachs mit Ofengemüse',
-    ingredients: 'Lachsfilet (500g)\nZucchini\nKarotten (2 Stück)\nZitrone\nOlivenöl\nKnoblauch\nDill\nSalz, Pfeffer'
-  },
-  {
-    id: 'def-6', name: 'Gemüsesuppe',
-    ingredients: 'Karotten (3 Stück)\nSellerie\nLauch\nZwiebel\nKartoffeln (400g)\nGemüsebrühe (1.5 L)\nPetersilie\nSalz, Pfeffer'
-  },
-  {
-    id: 'def-7', name: 'Spinat-Ricotta-Pasta',
-    ingredients: 'Blattspinat (300g)\nRicotta (250g)\nPenne (400g)\nKnoblauch (2 Zehen)\nOlivenöl\nParmesan\nMuskatnuss\nSalz, Pfeffer'
-  }
-];
-
 let recipes = [];
 let weekPlan = [];
 let shoppingList = {};
+let currentUser = null;
+let csrfToken = null;
 
-function loadData() {
-  const r = localStorage.getItem('wpl-recipes');
-  const w = localStorage.getItem('wpl-weekplan');
-  recipes = r ? JSON.parse(r) : JSON.parse(JSON.stringify(DEFAULT_RECIPES));
-  weekPlan = w ? JSON.parse(w) : [];
-  if (!r) saveRecipes();
+// Get CSRF token from meta tag
+function initCSRF() {
+  const metaTag = document.querySelector('meta[name="csrf-token"]');
+  csrfToken = metaTag ? metaTag.getAttribute('content') : null;
 }
 
-function saveRecipes() { localStorage.setItem('wpl-recipes', JSON.stringify(recipes)); }
-function saveWeekPlan() { localStorage.setItem('wpl-weekplan', JSON.stringify(weekPlan)); }
+// Fetch recipes from API
+async function loadData() {
+  try {
+    const [rRes, wRes] = await Promise.all([
+      fetch('/api/recipes.php'),
+      fetch('/api/weekplan.php')
+    ]);
+
+    if (!rRes.ok || !wRes.ok) {
+      redirectToLogin();
+      return;
+    }
+
+    const rData = await rRes.json();
+    const wData = await wRes.json();
+
+    if (!rData.ok || !wData.ok) {
+      redirectToLogin();
+      return;
+    }
+
+    recipes = rData.recipes || [];
+    weekPlan = wData.weekPlan || [];
+  } catch (error) {
+    console.error('Failed to load data:', error);
+    redirectToLogin();
+  }
+}
+
+function redirectToLogin() {
+  window.location.href = '/login.html';
+}
+
+// Make a fetch request with CSRF token
+async function fetchWithCSRF(url, options = {}) {
+  const defaultHeaders = {
+    'Content-Type': 'application/json',
+  };
+
+  if (['POST', 'PUT', 'DELETE'].includes(options.method)) {
+    defaultHeaders['X-CSRF-Token'] = csrfToken;
+  }
+
+  return fetch(url, {
+    ...options,
+    headers: { ...defaultHeaders, ...options.headers }
+  });
+}
 
 // ══════════════════════════════════════════════════
 //  TABS
@@ -257,21 +280,39 @@ function renderRecipes() {
   }).join('');
 }
 
-function saveRecipe() {
+async function saveRecipe() {
   const id = document.getElementById('recipe-id').value;
   const name = document.getElementById('recipe-name').value.trim();
   const ingredients = document.getElementById('recipe-ingredients').value.trim();
   if (!name) { alert('Bitte einen Rezeptnamen eingeben.'); return; }
   if (!ingredients) { alert('Bitte mindestens eine Zutat eingeben.'); return; }
-  if (id) {
-    const idx = recipes.findIndex(r => r.id === id);
-    if (idx !== -1) recipes[idx] = { id, name, ingredients };
-  } else {
-    recipes.push({ id: Date.now().toString(), name, ingredients });
+
+  try {
+    if (id) {
+      // Update existing recipe
+      const res = await fetchWithCSRF('/api/recipes.php', {
+        method: 'PUT',
+        body: JSON.stringify({ id, name, ingredients })
+      });
+      const data = await res.json();
+      if (!data.ok) { alert(data.error || 'Fehler beim Speichern.'); return; }
+    } else {
+      // Create new recipe
+      const newId = Date.now().toString();
+      const res = await fetchWithCSRF('/api/recipes.php', {
+        method: 'POST',
+        body: JSON.stringify({ id: newId, name, ingredients })
+      });
+      const data = await res.json();
+      if (!data.ok) { alert(data.error || 'Fehler beim Speichern.'); return; }
+    }
+    await loadData();
+    renderRecipes();
+    cancelEdit();
+  } catch (error) {
+    console.error('Error saving recipe:', error);
+    alert('Fehler beim Speichern des Rezepts.');
   }
-  saveRecipes();
-  renderRecipes();
-  cancelEdit();
 }
 
 function editRecipe(id) {
@@ -294,15 +335,27 @@ function cancelEdit() {
   document.getElementById('btn-cancel').classList.add('hidden');
 }
 
-function deleteRecipe(id) {
+async function deleteRecipe(id) {
   const r = recipes.find(r => r.id === id);
   if (!r || !confirm(`"${r.name}" wirklich löschen?`)) return;
-  recipes = recipes.filter(r => r.id !== id);
-  weekPlan = weekPlan.filter(e => e.recipeId !== id);
-  saveRecipes();
-  saveWeekPlan();
-  renderRecipes();
-  renderWeekPlan();
+
+  try {
+    const res = await fetchWithCSRF('/api/recipes.php', {
+      method: 'DELETE',
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error || 'Fehler beim Löschen.'); return; }
+
+    // Remove from local state
+    recipes = recipes.filter(r => r.id !== id);
+    weekPlan = weekPlan.filter(e => e.recipeId !== id);
+    renderRecipes();
+    renderWeekPlan();
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    alert('Fehler beim Löschen des Rezepts.');
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -318,22 +371,22 @@ const DAY_COLORS = [
   { border: '#c2410c33', bg: '#c2410c0a', badge: '#c2410c33', text: '#fdba74' },
 ];
 
-function suggestWeek() {
+async function suggestWeek() {
   if (recipes.length < 1) { alert('Bitte zuerst Rezepte anlegen.'); return; }
   const shuffled = [...recipes].sort(() => Math.random() - 0.5);
   weekPlan = DAYS.map((day, i) => ({
     day,
     recipeId: shuffled[i % shuffled.length].id
   }));
-  saveWeekPlan();
+  await saveWeekPlan();
   renderWeekPlan();
 }
 
-function changeDay(dayIndex) {
+async function changeDay(dayIndex) {
   const current = weekPlan[dayIndex].recipeId;
   const options = recipes.length > 1 ? recipes.filter(r => r.id !== current) : recipes;
   weekPlan[dayIndex].recipeId = options[Math.floor(Math.random() * options.length)].id;
-  saveWeekPlan();
+  await saveWeekPlan();
   renderWeekPlan();
 }
 
@@ -382,6 +435,21 @@ function renderWeekPlan() {
       </ul>
     </div>`;
   }).join('');
+}
+
+async function saveWeekPlan() {
+  try {
+    const res = await fetchWithCSRF('/api/weekplan.php', {
+      method: 'POST',
+      body: JSON.stringify({ weekPlan })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error('Failed to save week plan:', data.error);
+    }
+  } catch (error) {
+    console.error('Error saving week plan:', error);
+  }
 }
 
 function goShopping() {
@@ -719,7 +787,7 @@ function clearChecked() {
 }
 
 // ══════════════════════════════════════════════════
-//  EXPORT / IMPORT / CLEAR
+//  EXPORT / LOGOUT
 // ══════════════════════════════════════════════════
 function exportData() {
   const data = { version: 1, exportDate: new Date().toISOString(), recipes, weekPlan };
@@ -730,46 +798,58 @@ function exportData() {
   a.click();
 }
 
-function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (Array.isArray(data.recipes)) { recipes = data.recipes; saveRecipes(); }
-      if (Array.isArray(data.weekPlan)) { weekPlan = data.weekPlan; saveWeekPlan(); }
-      renderAll();
-      alert('✅ Import erfolgreich! ' + recipes.length + ' Rezepte geladen.');
-    } catch {
-      alert('❌ Fehler beim Import. Bitte prüfe die JSON-Datei.');
-    }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
-}
-
-function clearAll() {
-  if (!confirm('Wirklich ALLE Rezepte und den gesamten Wochenplan löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.')) return;
-  recipes = [];
-  weekPlan = [];
-  shoppingList = {};
-  saveRecipes();
-  saveWeekPlan();
-  renderAll();
-  showTab('rezepte');
+async function logout() {
+  try {
+    await fetchWithCSRF('/api/auth.php', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'logout' })
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
+  window.location.href = '/login.html';
 }
 
 // ══════════════════════════════════════════════════
-//  INIT
+//  INITIALIZATION
 // ══════════════════════════════════════════════════
 function renderAll() {
   renderRecipes();
   renderWeekPlan();
 }
 
-loadData();
-renderAll();
+async function init() {
+  // Initialize CSRF token first
+  initCSRF();
+
+  // Check authentication status
+  try {
+    const res = await fetch('/api/auth.php?action=status');
+    const data = await res.json();
+    if (!data.ok) {
+      window.location.href = '/login.html';
+      return;
+    }
+    currentUser = data.user;
+  } catch (error) {
+    console.error('Auth check failed:', error);
+    window.location.href = '/login.html';
+    return;
+  }
+
+  // Update user badge
+  const userDisplay = document.getElementById('user-display');
+  if (userDisplay && currentUser) {
+    userDisplay.textContent = currentUser.display_name || currentUser.username;
+  }
+
+  // Load data and render
+  await loadData();
+  renderAll();
+}
+
+// Start the app
+init();
 </script>
 
 </body>

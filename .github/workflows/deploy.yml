@@ -22,6 +22,6 @@ jobs:
             set net:timeout 10;
             set net:max-retries 3;
             open sftp://${{ secrets.SFTP_USER }}:${{ secrets.SFTP_PASS }}@${{ secrets.SFTP_HOST }}:22;
-            mirror --reverse --delete --verbose --exclude .git/ --exclude .github/ ./ /htdocs/;
+            mirror --reverse --delete --verbose --exclude .git/ --exclude .github/ --exclude includes/config.php ./ /htdocs/;
             bye
           "
