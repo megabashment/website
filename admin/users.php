@@ -9,15 +9,31 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: same-origin');
 
-// Start session and check admin access
+// Session-Hardening (vor session_start setzen)
+if (ini_get('session.cookie_httponly') == 0) ini_set('session.cookie_httponly', 1);
+if (ini_get('session.cookie_samesite') !== 'Strict') ini_set('session.cookie_samesite', 'Strict');
+if (!empty($_SERVER['HTTPS']) && ini_get('session.cookie_secure') != 1) ini_set('session.cookie_secure', 1);
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (empty($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (empty($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     http_response_code(403);
     echo json_encode(['ok' => false, 'error' => 'Zugriff verweigert.']);
+    exit;
+}
+
+// CSRF-Schutz für alle state-changing Aktionen
+$csrfFromHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+$csrfFromSession = $_SESSION['csrf_token'] ?? '';
+if (empty($csrfFromSession) || !hash_equals($csrfFromSession, $csrfFromHeader)) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'CSRF-Token ungültig.']);
     exit;
 }
 
@@ -105,19 +121,23 @@ try {
         if (!empty($email)) {
             $subject = 'Dein Konto wurde erstellt';
             $loginUrl = APP_URL . '/login.html';
+            $eDisplay = htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8');
+            $eUsername = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+            $ePassword = htmlspecialchars($password, ENT_QUOTES, 'UTF-8');
+            $eLoginUrl = htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8');
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2>Willkommen!</h2>
-                        <p>Hallo {$display_name},</p>
+                        <p>Hallo {$eDisplay},</p>
                         <p>dein Account wurde erstellt. Hier sind deine Anmeldedaten:</p>
                         <div style="background-color: #f5f5f5; border-left: 4px solid #7c3aed; padding: 15px; margin: 20px 0;">
-                            <p><strong>Benutzername:</strong> {$username}</p>
-                            <p><strong>Passwort:</strong> {$password}</p>
+                            <p><strong>Benutzername:</strong> {$eUsername}</p>
+                            <p><strong>Passwort:</strong> {$ePassword}</p>
                         </div>
                         <p>Du kannst dich hier anmelden:</p>
-                        <p><a href="{$loginUrl}" style="color: #7c3aed;">{$loginUrl}</a></p>
+                        <p><a href="{$eLoginUrl}" style="color: #7c3aed;">{$eLoginUrl}</a></p>
                         <p style="margin-top: 30px; font-size: 14px; color: #999;">Ändere bitte dein Passwort, wenn du dich das erste Mal anmeldest.</p>
                     </div>
                 </body>
@@ -247,14 +267,16 @@ try {
         if (!empty($user['email']) && function_exists('sendMail')) {
             $subject = 'Dein Konto wurde freigegeben';
             $loginUrl = APP_URL . '/login.html';
+            $eDisplay = htmlspecialchars($user['display_name'], ENT_QUOTES, 'UTF-8');
+            $eLoginUrl = htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8');
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2>Willkommen!</h2>
-                        <p>Hallo {$user['display_name']},</p>
+                        <p>Hallo {$eDisplay},</p>
                         <p>dein Konto wurde freigegeben und ist nun aktiv. Du kannst dich jetzt anmelden:</p>
-                        <p><a href="{$loginUrl}" style="color: #7c3aed;">{$loginUrl}</a></p>
+                        <p><a href="{$eLoginUrl}" style="color: #7c3aed;">{$eLoginUrl}</a></p>
                     </div>
                 </body>
             </html>

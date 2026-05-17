@@ -28,8 +28,10 @@ if (ini_get('session.cookie_httponly') == 0) {
 if (ini_get('session.cookie_samesite') !== 'Strict') {
     ini_set('session.cookie_samesite', 'Strict');
 }
-// Enable once HTTPS is active on the domain:
-// if (ini_get('session.cookie_secure') != 1) { ini_set('session.cookie_secure', 1); }
+if (!empty($_SERVER['HTTPS']) && ini_get('session.cookie_secure') != 1) {
+    ini_set('session.cookie_secure', 1);
+}
+header('Referrer-Policy: same-origin');
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -83,6 +85,17 @@ if ($action === 'login') {
         exit;
     }
 
+    // Throttle: nach 5 Fehlversuchen pro Session 60s Sperre (eskaliert mit weiteren Versuchen)
+    $attemptsKey = 'login_attempts';
+    $lockUntilKey = 'login_lock_until';
+    $now = time();
+    if (!empty($_SESSION[$lockUntilKey]) && $now < $_SESSION[$lockUntilKey]) {
+        $wait = $_SESSION[$lockUntilKey] - $now;
+        http_response_code(429);
+        echo json_encode(['ok' => false, 'error' => "Zu viele Versuche. Bitte {$wait}s warten."]);
+        exit;
+    }
+
     try {
         $db = getDB();
         $stmt = $db->prepare('SELECT id, username, display_name, password, role, tier, status FROM users WHERE username = ?');
@@ -90,11 +103,20 @@ if ($action === 'login') {
         $user = $stmt->fetch();
 
         if (!$user || !password_verify($password, $user['password'])) {
-            sleep(1); // Brute-force-Verzögerung
+            $_SESSION[$attemptsKey] = ($_SESSION[$attemptsKey] ?? 0) + 1;
+            if ($_SESSION[$attemptsKey] >= 5) {
+                // Exponentielles Backoff: 60s · 2^(extra Versuche), gedeckelt auf 30min
+                $extra = $_SESSION[$attemptsKey] - 5;
+                $_SESSION[$lockUntilKey] = $now + min(1800, 60 * (2 ** $extra));
+            }
+            sleep(1);
             http_response_code(401);
             echo json_encode(['ok' => false, 'error' => 'Ungültige Anmeldedaten.']);
             exit;
         }
+
+        // Erfolgreicher Login: Zähler zurücksetzen
+        unset($_SESSION[$attemptsKey], $_SESSION[$lockUntilKey]);
 
         // Check if user account is active (not pending approval)
         if ($user['status'] === 'pending') {
@@ -213,12 +235,13 @@ if ($action === 'register') {
         // Send confirmation email to user (if sendMail is available)
         if (function_exists('sendMail')) {
             $subject = 'Registrierung beantragt';
+            $eDisplayName = htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
             $body = <<<HTML
             <html>
                 <body style="font-family: Arial, sans-serif; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h2>Registrierung beantragt</h2>
-                        <p>Hallo {$displayName},</p>
+                        <p>Hallo {$eDisplayName},</p>
                         <p>deine Registrierung wurde eingegangen. Dein Konto wird überprüft und du wirst benachrichtigt, sobald es von einem Administrator freigeschaltet wurde.</p>
                         <p>Bis dahin kannst du dich noch nicht anmelden.</p>
                     </div>
@@ -290,14 +313,16 @@ if ($action === 'forgot_password') {
         // Send reset email
         $resetUrl = APP_URL . '/reset-password.php?token=' . urlencode($token);
         $subject = 'Passwort zurücksetzen';
+        $eUsername = htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8');
+        $eResetUrl = htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8');
         $body = <<<HTML
         <html>
             <body style="font-family: Arial, sans-serif; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                     <h2>Passwort zurücksetzen</h2>
-                    <p>Hallo {$user['username']},</p>
+                    <p>Hallo {$eUsername},</p>
                     <p>Du hast eine Anfrage zum Zurücksetzen deines Passworts gestellt. Klicke auf den folgenden Link, um ein neues Passwort zu setzen:</p>
-                    <p><a href="{$resetUrl}" style="color: #7c3aed;">{$resetUrl}</a></p>
+                    <p><a href="{$eResetUrl}" style="color: #7c3aed;">{$eResetUrl}</a></p>
                     <p>Dieser Link ist 1 Stunde lang gültig.</p>
                     <p>Falls du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.</p>
                 </div>

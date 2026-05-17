@@ -6,15 +6,29 @@
  * Only accessible to admin users.
  */
 
-// Session and admin check
+// Session-Hardening (vor session_start)
+if (ini_get('session.cookie_httponly') == 0) ini_set('session.cookie_httponly', 1);
+if (ini_get('session.cookie_samesite') !== 'Strict') ini_set('session.cookie_samesite', 'Strict');
+if (!empty($_SERVER['HTTPS']) && ini_get('session.cookie_secure') != 1) ini_set('session.cookie_secure', 1);
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (empty($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (empty($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     header('Location: /login.html');
     exit;
 }
+
+// CSRF-Token sicherstellen (z. B. für ältere Sessions ohne Token)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrfToken = $_SESSION['csrf_token'];
+
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: same-origin');
 
 require_once '../includes/db.php';
 
@@ -35,6 +49,7 @@ $currentUserId = $_SESSION['user_id'];
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>" />
   <title>Admin</title>
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
@@ -239,6 +254,15 @@ $currentUserId = $_SESSION['user_id'];
 </div>
 
 <script>
+const CSRF_TOKEN = document.querySelector('meta[name=csrf-token]').content;
+function adminFetch(body) {
+  return fetch('/admin/users.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+    body: JSON.stringify(body)
+  });
+}
+
 async function submitCreateForm(e) {
   e.preventDefault();
   const username = document.getElementById('new-username').value.trim();
@@ -252,11 +276,7 @@ async function submitCreateForm(e) {
   errorDiv.textContent = '';
 
   try {
-    const res = await fetch('/admin/users.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', username, display_name, email, password, role })
-    });
+    const res = await adminFetch({ action: 'create', username, display_name, email, password, role });
 
     const data = await res.json();
 
@@ -296,11 +316,7 @@ async function submitResetForm(e) {
   errorDiv.textContent = '';
 
   try {
-    const res = await fetch('/admin/users.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reset_password', user_id: userId, new_password: newPassword })
-    });
+    const res = await adminFetch({ action: 'reset_password', user_id: userId, new_password: newPassword });
 
     const data = await res.json();
 
@@ -324,11 +340,7 @@ async function deleteUser(userId, username) {
   }
 
   try {
-    const res = await fetch('/admin/users.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', user_id: userId })
-    });
+    const res = await adminFetch({ action: 'delete', user_id: userId });
 
     const data = await res.json();
 
@@ -350,11 +362,7 @@ async function approveUser(userId, username) {
   }
 
   try {
-    const res = await fetch('/admin/users.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve', user_id: userId })
-    });
+    const res = await adminFetch({ action: 'approve', user_id: userId });
 
     const data = await res.json();
 
@@ -376,11 +384,7 @@ async function rejectUser(userId, username) {
   }
 
   try {
-    const res = await fetch('/admin/users.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject', user_id: userId })
-    });
+    const res = await adminFetch({ action: 'reject', user_id: userId });
 
     const data = await res.json();
 

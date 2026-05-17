@@ -9,6 +9,9 @@
 
 // Ensure we output JSON
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: same-origin');
 
 // Session security configuration
 if (ini_get('session.cookie_httponly') == 0) {
@@ -17,8 +20,10 @@ if (ini_get('session.cookie_httponly') == 0) {
 if (ini_get('session.cookie_samesite') !== 'Strict') {
     ini_set('session.cookie_samesite', 'Strict');
 }
-// Enable session.cookie_secure once HTTPS is confirmed
-// ini_set('session.cookie_secure', 1);
+// HTTPS active on tchorsch.com — bind cookies to HTTPS
+if (!empty($_SERVER['HTTPS']) && ini_get('session.cookie_secure') != 1) {
+    ini_set('session.cookie_secure', 1);
+}
 
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
@@ -37,7 +42,7 @@ if (in_array($_SERVER['REQUEST_METHOD'], ['POST', 'PUT', 'DELETE'])) {
     $csrfFromHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     $csrfFromSession = $_SESSION['csrf_token'] ?? '';
 
-    if (empty($csrfFromSession) || $csrfFromHeader !== $csrfFromSession) {
+    if (empty($csrfFromSession) || !hash_equals($csrfFromSession, $csrfFromHeader)) {
         http_response_code(403);
         echo json_encode(['ok' => false, 'error' => 'CSRF-Token ungültig.']);
         exit;
