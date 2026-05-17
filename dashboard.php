@@ -69,45 +69,69 @@ $role = $_SESSION['role'] ?? 'user';
 
   </div>
 
-  <!-- Section: Tools (Coming Soon) -->
-  <p class="text-xs font-medium text-zinc-500 uppercase tracking-widest mb-4">Weitere Tools <span class="text-zinc-600 normal-case tracking-normal font-normal">— in Entwicklung</span></p>
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  <!-- Section: Tools (Aktiv) -->
+  <p class="text-xs font-medium text-zinc-500 uppercase tracking-widest mb-4">Tools</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
 
-    <!-- AI Chatbot Widget -->
-    <div class="block bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-6 opacity-50 cursor-not-allowed">
-      <div class="w-10 h-10 bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
+    <!-- AI Chatbot Widget — aktiv -->
+    <a href="/tools/chatbot/" class="group block bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-blue-700/50 rounded-xl p-6 transition-all">
+      <div class="w-10 h-10 bg-blue-900/40 group-hover:bg-blue-800/40 rounded-lg flex items-center justify-center mb-4 transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-blue-400">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
         </svg>
       </div>
-      <h2 class="text-sm font-semibold text-zinc-400 mb-1">AI Chatbot Widget</h2>
-      <p class="text-xs text-zinc-600 leading-relaxed">Einbettbares Chat-Widget mit Claude AI. Per Script-Tag in jede Website integrierbar.</p>
-      <span class="inline-block mt-3 text-xs text-zinc-600 font-medium">Coming Soon</span>
-    </div>
+      <h2 class="text-sm font-semibold text-zinc-100 mb-1">AI Chatbot Widget</h2>
+      <p class="text-xs text-zinc-500 leading-relaxed">Einbettbares Chat-Widget mit Claude AI. Per Script-Tag in jede Website.</p>
+      <span class="inline-block mt-3 text-xs text-blue-400 font-medium">→ Öffnen</span>
+    </a>
 
-    <!-- Invoice Generator -->
-    <div class="block bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-6 opacity-50 cursor-not-allowed">
-      <div class="w-10 h-10 bg-amber-900/30 rounded-lg flex items-center justify-center mb-4">
+    <!-- Invoice Generator — aktiv -->
+    <a href="/tools/invoice-generator/" class="group block bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-700/50 rounded-xl p-6 transition-all">
+      <div class="w-10 h-10 bg-amber-900/40 group-hover:bg-amber-800/40 rounded-lg flex items-center justify-center mb-4 transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-amber-400">
           <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
         </svg>
       </div>
-      <h2 class="text-sm font-semibold text-zinc-400 mb-1">Invoice Generator</h2>
-      <p class="text-xs text-zinc-600 leading-relaxed">Rechnungen im Browser erstellen, Positionen kalkulieren, PDF exportieren.</p>
-      <span class="inline-block mt-3 text-xs text-zinc-600 font-medium">Coming Soon</span>
-    </div>
+      <h2 class="text-sm font-semibold text-zinc-100 mb-1">Invoice Generator</h2>
+      <p class="text-xs text-zinc-500 leading-relaxed">Rechnungen im Browser erstellen, Positionen kalkulieren, PDF exportieren.</p>
+      <span class="inline-block mt-3 text-xs text-amber-400 font-medium">→ Öffnen</span>
+    </a>
 
-    <!-- n8n Showcase -->
-    <div class="block bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-6 opacity-50 cursor-not-allowed">
-      <div class="w-10 h-10 bg-orange-900/30 rounded-lg flex items-center justify-center mb-4">
+    <!-- n8n Showcase — aktiv -->
+    <a href="/tools/n8n/" class="group block bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-orange-700/50 rounded-xl p-6 transition-all">
+      <div class="w-10 h-10 bg-orange-900/40 group-hover:bg-orange-800/40 rounded-lg flex items-center justify-center mb-4 transition-colors">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-orange-400">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
         </svg>
       </div>
-      <h2 class="text-sm font-semibold text-zinc-400 mb-1">Automation Showcase</h2>
-      <p class="text-xs text-zinc-600 leading-relaxed">n8n Workflows live erleben — Formular → AI → E-Mail, vollautomatisch.</p>
-      <span class="inline-block mt-3 text-xs text-zinc-600 font-medium">Coming Soon</span>
-    </div>
+      <h2 class="text-sm font-semibold text-zinc-100 mb-1">Automation Showcase</h2>
+      <p class="text-xs text-zinc-500 leading-relaxed">n8n Workflows live erleben — Formular → AI → E-Mail, vollautomatisch.</p>
+      <span class="inline-block mt-3 text-xs text-orange-400 font-medium">→ Öffnen</span>
+    </a>
+
+  </div>
+
+  <!-- Section: Spiele (neu) -->
+  <p class="text-xs font-medium text-zinc-500 uppercase tracking-widest mb-4">Spiele</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+
+    <!-- Monster-Mathe-Markt — aktiv -->
+    <a href="/games/mathe-markt/" class="group block bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-pink-700/50 rounded-xl p-6 transition-all">
+      <div class="w-10 h-10 bg-pink-900/40 group-hover:bg-pink-800/40 rounded-lg flex items-center justify-center mb-4 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 text-pink-400">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <h2 class="text-sm font-semibold text-zinc-100 mb-1">Monster-Mathe-Markt</h2>
+      <p class="text-xs text-zinc-500 leading-relaxed">Mathe-Lernspiel für Kinder: Monster-Gäste im Shop, Aufgaben an 3 Stationen lösen.</p>
+      <span class="inline-block mt-3 text-xs text-pink-400 font-medium">→ Öffnen</span>
+    </a>
+
+  </div>
+
+  <!-- Section: WP AI Plugin (Coming Soon) -->
+  <p class="text-xs font-medium text-zinc-500 uppercase tracking-widest mb-4">Mehr <span class="text-zinc-600 normal-case tracking-normal font-normal">— in Entwicklung</span></p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
     <!-- WP AI Plugin -->
     <div class="block bg-zinc-900/50 border border-zinc-800/50 rounded-xl p-6 opacity-50 cursor-not-allowed">
@@ -117,7 +141,7 @@ $role = $_SESSION['role'] ?? 'user';
         </svg>
       </div>
       <h2 class="text-sm font-semibold text-zinc-400 mb-1">WordPress AI Plugin</h2>
-      <p class="text-xs text-zinc-600 leading-relaxed">Claude AI direkt im Gutenberg Editor — Texte generieren, Meta-Beschreibungen, Produkttexte.</p>
+      <p class="text-xs text-zinc-600 leading-relaxed">Claude AI direkt im Gutenberg Editor — Texte generieren, Meta-Beschreibungen.</p>
       <span class="inline-block mt-3 text-xs text-zinc-600 font-medium">Coming Soon</span>
     </div>
 

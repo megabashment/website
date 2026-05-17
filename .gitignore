@@ -13,3 +13,9 @@ includes/config.php
 # Temporary files
 *.tmp
 *.temp
+
+# Build artifacts (deployed separately via SFTP)
+games/
+
+# Local IDE/settings
+.claude/
