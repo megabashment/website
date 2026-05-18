@@ -6,7 +6,20 @@
       "Bash(git add:*)",
       "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/PHPMailer.php -o PHPMailer.php)",
       "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/SMTP.php -o SMTP.php)",
-      "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/Exception.php -o Exception.php)"
+      "Bash(curl -s https://raw.githubusercontent.com/PHPMailer/PHPMailer/master/src/Exception.php -o Exception.php)",
+      "Bash(php -l login.html)",
+      "Bash(php -l api/auth.php)",
+      "Bash(php -l index.php)",
+      "Bash(php -l admin/index.php)",
+      "Bash(php -l admin/users.php)",
+      "Bash(php -l reset-password.php)",
+      "Bash(git rm:*)",
+      "Bash(grep -r console. --include=*.html --include=*.php --include=*.js c:Userschrisprojectswebsite --exclude-dir=.git)",
+      "Bash(grep -E \"\\\\.\\(php|html|js\\)$\")",
+      "Bash(xargs wc:*)",
+      "Bash(grep -n \"TODO\\\\|FIXME\\\\|HACK\\\\|XXX\" c:Userschrisprojectswebsite/*.php c:Userschrisprojectswebsite/*.html)",
+      "Bash(grep -E \"\\\\.\\(php|html\\)$\")",
+      "Bash(xargs grep:*)"
     ]
   }
 }
