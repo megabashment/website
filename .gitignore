@@ -15,7 +15,8 @@ includes/config.php
 *.temp
 
 # Build artifacts (deployed separately via SFTP)
-games/
+games/*/
+!games/mathe-markt/
 
 # Local IDE/settings
 .claude/
